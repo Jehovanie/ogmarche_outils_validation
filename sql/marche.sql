@@ -11,12 +11,12 @@ ALTER TABLE ogmarche.marche_geocode_raw
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_marche_geocode_raw_row_id ON ogmarche.marche_geocode_raw (row_id);
 
 INSERT INTO ogmarche.marche (
-    raw_row_id, unique_id, id_marche, denomination_f, code_dep,
+    raw_row_id, unique_id, id_marche, denomination_f, denomination_normalise, code_dep,
     num_voie, type_voie, nom_voie, code_postal, commune, code_insee,
     longitude, latitude, precision, id_ban
 )
 SELECT
-    r.row_id, r.unique_id, r.id_marche, r.denomination_f, r.code_dep,
+    r.row_id, r.unique_id, r.id_marche, r.denomination_f, r.denomination_normalise, r.code_dep,
     r.num_voie, r.type_voie, r.nom_voie, r.code_postal, r.commune, r.code_insee,
     r.longitude, r.latitude, r.precision, r.id_ban
 FROM ogmarche.marche_geocode_raw r

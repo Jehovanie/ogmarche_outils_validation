@@ -3,8 +3,6 @@
 * { box-sizing: border-box; }
 body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
 a { color: var(--accent); }
-.topbar { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; background: var(--card); border-bottom: 1px solid var(--line); }
-.brand { font-weight: 600; text-decoration: none; }
 main { max-width: 56rem; margin: 0 auto; padding: 1rem; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
 table { width: 100%; border-collapse: collapse; }
@@ -14,6 +12,8 @@ th, td { text-align: left; padding: .5rem; border-bottom: 1px solid var(--line);
 label { display: block; font-size: .85rem; color: var(--muted); }
 input { width: 100%; padding: .5rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
 button { padding: .5rem .9rem; font: inherit; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; cursor: pointer; }
+a.btn-link { display: inline-block; padding: .5rem .9rem; font: inherit; border: 1px solid var(--accent); border-radius: 6px; text-decoration: none; background: var(--accent); color: #fff; }
+a.btn-link.secondary { background: transparent; color: var(--accent); }
 button.secondary { background: transparent; color: var(--accent); }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
 .flash { padding: .5rem .75rem; border-radius: 6px; margin-top: .75rem; }
@@ -22,13 +22,27 @@ button.secondary { background: transparent; color: var(--accent); }
 .error { color: var(--warn); }
 @media (max-width: 480px) { main { padding: .75rem; } }
 
-/* Page de validation d'une fiche : bloc elargi */
-main:has(.fiche) { max-width: 80rem; }
-.fiche { padding: 1.5rem; }
+/* Page de validation d'une fiche : toute la largeur de l'ecran */
+main:has(#fiche) { max-width: none; padding-inline: .5rem; }
+.fiche-card { padding: 1.5rem; }
 .fiche-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .75rem; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); }
-.fiche h2 { margin: 1.25rem 0 .5rem; font-size: 1.1rem; }
-/* champs d'adresse alignes sur une seule ligne */
-.grid-adresse { display: grid; gap: .75rem; grid-template-columns: 6rem 8rem minmax(12rem, 2fr) 8rem minmax(10rem, 1fr); align-items: end; }
-.grid-position { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 14rem)); }
-@media (max-width: 900px) { .grid-adresse { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .grid-adresse { grid-template-columns: 1fr; } }
+#fiche h2 { margin: 1.25rem 0 .5rem; font-size: 1.1rem; }
+.grid-position { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fiche-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.fiche-card-head .actions { margin-top: 0; }
+.doublons-resultats { margin-top: 1rem; overflow-x: auto; }
+.doublons-resultats .dataTables_wrapper { color: inherit; }
+.doublons-resultats table.dataTable tbody tr { background: transparent; }
+.doublons-resultats table.dataTable.display tbody td { border-top: 1px solid var(--line); }
+.doublons-resultats .dataTables_wrapper .dataTables_paginate .paginate_button { color: var(--fg) !important; }
+.doublons-resultats .dataTables_wrapper input, .doublons-resultats .dataTables_wrapper select { width: auto; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .25rem .4rem; }
+
+/* Fiches du groupe cote a cote, deux par ligne ; une fiche seule reste a gauche, a demi-largeur */
+.fiche-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; margin-bottom: 1rem; }
+.fiche-grid .card { margin-bottom: 0; }
+@media (max-width: 900px) { .fiche-grid { grid-template-columns: 1fr; } }
+/* adresse sur deux lignes dans une carte a demi-largeur */
+.grid-adresse { display: grid; gap: .75rem; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; }
+.grid-adresse > :nth-child(1), .grid-adresse > :nth-child(2), .grid-adresse > :nth-child(4) { grid-column: span 2; }
+.grid-adresse > :nth-child(3), .grid-adresse > :nth-child(5) { grid-column: span 3; }
+@media (max-width: 480px) { .grid-adresse > * { grid-column: 1 / -1 !important; } }

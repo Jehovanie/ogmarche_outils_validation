@@ -73,6 +73,49 @@ class MarcheRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** @return list<Marche> fiches d'un groupe de doublons, la plus ancienne d'abord */
+    public function findByCodens(string $codens): array
+    {
+        return $this->findBy(['codens' => $codens], ['id' => 'ASC']);
+    }
+
+    /**
+     * Fiches que l'agent peut lier a $marche : meme departement, dans ses communes, qui ont
+     * le meme code postal (champ "cp") ou le meme nom de commune (champ "commune") que la
+     * fiche. Les fiches deja traitees et celles du groupe de $marche sont exclues.
+     *
+     * @param 'cp'|'commune' $champ
+     *
+     * @return list<Marche>
+     */
+    public function candidatsDoublon(Marche $marche, int $userId, string $champ, int $limite = 2000): array
+    {
+        $valeur = 'cp' === $champ ? $marche->getCodePostal() : $marche->getCommune();
+        if (null === $valeur || '' === trim($valeur)) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('m')
+            ->join(CommuneAttribution::class, 'a', 'WITH', 'a.codeDep = m.codeDep AND a.codeInsee = m.codeInsee')
+            ->where('a.userId = :user')
+            ->andWhere('m.codeDep = :dep')
+            ->andWhere('m.id <> :id')
+            ->andWhere('m.traite = false')
+            ->andWhere('cp' === $champ ? 'm.codePostal = :valeur' : 'm.commune = :valeur')
+            ->setParameter('user', $userId)
+            ->setParameter('dep', $marche->getCodeDep())
+            ->setParameter('id', $marche->getId())
+            ->setParameter('valeur', $valeur)
+            ->orderBy('m.id', 'ASC')
+            ->setMaxResults($limite);
+
+        if (null !== $marche->getCodens()) {
+            $qb->andWhere('(m.codens IS NULL OR m.codens <> :codens)')->setParameter('codens', $marche->getCodens());
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
     /**
      * @return list<array{codeDep: string, total: int, aTraiter: int}>
      */

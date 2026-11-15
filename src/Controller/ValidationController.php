@@ -7,6 +7,7 @@ use App\Repository\MarcheRepository;
 use App\Service\AdresseValidationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -48,15 +49,22 @@ final class ValidationController extends AbstractController
 
     /** Prochaine fiche a valider dans une commune (equivalent de /pResto/specialDep). */
     #[Route('/validation/{dep}/{insee}', name: 'app_fiche', methods: ['GET'], requirements: ['dep' => '[0-9A-Za-z]{2,3}', 'insee' => '[0-9A-Za-z]{5}'])]
-    public function fiche(string $dep, string $insee): Response
+    public function fiche(string $dep, string $insee, Request $request): Response
     {
-        $marche = $this->validation->prochaineFiche($dep, $insee, $this->agent());
+        // ?fiche=<id> garde l'agent sur la fiche qu'il vient de lier ou de delier
+        $ficheId = $request->query->getInt('fiche') ?: null;
+        $marche = $this->validation->prochaineFiche($dep, $insee, $this->agent(), $ficheId);
         if (null === $marche) {
             // plus rien a valider : retour a la liste des communes
             return $this->redirectToRoute('app_communes', ['dep' => $dep]);
         }
 
-        return $this->render('validation/fiche.html.twig', ['marche' => $marche, 'dep' => $dep, 'insee' => $insee]);
+        return $this->render('validation/fiche.html.twig', [
+            'marche' => $marche,
+            'groupe' => $this->validation->groupe($marche),
+            'dep' => $dep,
+            'insee' => $insee,
+        ]);
     }
 
     private function agent(): User

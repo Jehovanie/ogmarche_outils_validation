@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Dto\AdresseDto;
+use App\Dto\LierDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
+use App\Entity\Marche;
 use App\Entity\User;
 use App\Service\AdresseValidationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -14,14 +16,14 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
 /** Actions XHR de la page de validation. Toutes exigent le jeton CSRF "marche" (en-tete X-CSRF-Token). */
-#[Route('/api/marche/{id}', requirements: ['id' => '\d+'], methods: ['POST'])]
+#[Route('/api/marche/{id}', requirements: ['id' => '\d+'])]
 final class AdresseApiController extends AbstractController
 {
     public function __construct(private readonly AdresseValidationService $validation)
     {
     }
 
-    #[Route('/position', name: 'api_marche_position')]
+    #[Route('/position', name: 'api_marche_position', methods: ['POST'])]
     public function changerPosition(int $id, Request $request, #[MapRequestPayload] PositionDto $position): JsonResponse
     {
         $this->checkCsrf($request);
@@ -30,7 +32,7 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/nom', name: 'api_marche_nom')]
+    #[Route('/nom', name: 'api_marche_nom', methods: ['POST'])]
     public function changerNom(int $id, Request $request, #[MapRequestPayload] NomDto $nom): JsonResponse
     {
         $this->checkCsrf($request);
@@ -39,7 +41,7 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/nom-ok', name: 'api_marche_nom_ok')]
+    #[Route('/nom-ok', name: 'api_marche_nom_ok', methods: ['POST'])]
     public function nomOk(int $id, Request $request): JsonResponse
     {
         $this->checkCsrf($request);
@@ -48,7 +50,7 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/adresse', name: 'api_marche_adresse')]
+    #[Route('/adresse', name: 'api_marche_adresse', methods: ['POST'])]
     public function changerAdresse(int $id, Request $request, #[MapRequestPayload] AdresseDto $adresse): JsonResponse
     {
         $this->checkCsrf($request);
@@ -57,7 +59,7 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true, 'avertissements' => $avertissements]);
     }
 
-    #[Route('/adresse-ok', name: 'api_marche_adresse_ok')]
+    #[Route('/adresse-ok', name: 'api_marche_adresse_ok', methods: ['POST'])]
     public function adresseOk(int $id, Request $request): JsonResponse
     {
         $this->checkCsrf($request);
@@ -66,7 +68,7 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/traite', name: 'api_marche_traite')]
+    #[Route('/traite', name: 'api_marche_traite', methods: ['POST'])]
     public function traite(int $id, Request $request): JsonResponse
     {
         $this->checkCsrf($request);
@@ -79,13 +81,48 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/rappel', name: 'api_marche_rappel')]
-    public function rappel(int $id, Request $request): JsonResponse
+    #[Route('/lier', name: 'api_marche_lier', methods: ['POST'])]
+    public function lier(int $id, Request $request, #[MapRequestPayload] LierDto $lier): JsonResponse
     {
         $this->checkCsrf($request);
-        $this->validation->definirRappel($id, $request->query->getBoolean('valeur', true), $this->agent());
+        try {
+            $codens = $this->validation->lier($id, $lier->ids, $this->agent());
+        } catch (\DomainException $e) {
+            return $this->json(['ok' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return $this->json(['ok' => true, 'codens' => $codens]);
+    }
+
+    #[Route('/delier', name: 'api_marche_delier', methods: ['POST'])]
+    public function delier(int $id, Request $request): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $this->validation->delier($id, $this->agent());
 
         return $this->json(['ok' => true]);
+    }
+
+    /** Doublons possibles : ?champ=cp (meme code postal) ou ?champ=commune (meme commune). */
+    #[Route('/candidats', name: 'api_marche_candidats', methods: ['GET'])]
+    public function candidats(int $id, Request $request): JsonResponse
+    {
+        try {
+            $fiches = $this->validation->candidats($id, $request->query->getString('champ'), $this->agent());
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        }
+
+        return $this->json(array_map(static fn (Marche $m): array => [
+            'id' => $m->getId(),
+            'denominationNormalise' => $m->getDenominationNormalise() ?? $m->getDenomination(),
+            'numVoie' => $m->getNumVoie(),
+            'typeVoie' => $m->getTypeVoie(),
+            'nomVoie' => $m->getNomVoie(),
+            'codePostal' => $m->getCodePostal(),
+            'commune' => $m->getCommune(),
+            'codens' => $m->getCodens(),
+        ], $fiches));
     }
 
     private function checkCsrf(Request $request): void

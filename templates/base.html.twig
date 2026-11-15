@@ -10,12 +10,6 @@
         {% block javascripts %}{% endblock %}
     </head>
     <body>
-        <header class="topbar">
-            <a href="{{ path('app_dep_choice') }}" class="brand">Validation des marchés</a>
-            {% if app.user %}
-                <span>{{ app.user.name ?: app.user.userIdentifier }} · <a href="{{ path('app_logout') }}">Déconnexion</a></span>
-            {% endif %}
-        </header>
         <main>{% block body %}{% endblock %}</main>
     </body>
 </html>

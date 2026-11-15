@@ -1,0 +1,52 @@
+{# Une fiche du groupe : nom, adresse, position. Les actions sont branchees par validation.js. #}
+<article class="card fiche-card" data-id="{{ m.id }}"
+         data-api-adresse="{{ path('api_marche_adresse', {id: m.id}) }}"
+         data-api-nom="{{ path('api_marche_nom', {id: m.id}) }}"
+         data-api-position="{{ path('api_marche_position', {id: m.id}) }}"
+         data-api-delier="{{ path('api_marche_delier', {id: m.id}) }}">
+    <div class="fiche-card-head">
+        <span class="muted">
+            Fiche {{ m.id }}{% if groupe|length > 1 %} · groupe {{ m.codens }}{% endif %}
+        </span>
+        <div class="actions">
+            <button type="button" class="secondary btn-google">Recherche Google</button>
+            <button type="button" class="secondary btn-maps">Google Maps</button>
+            {% if groupe|length > 1 %}<button type="button" class="secondary btn-delier">Délier ce doublon</button>{% endif %}
+        </div>
+    </div>
+
+    <h2>Nom de l'établissement</h2>
+    <form class="nom-form" autocomplete="off">
+        <label for="denomination-{{ m.id }}">Nom actuel</label>
+        <input id="denomination-{{ m.id }}" name="denomination" value="{{ m.denomination }}" maxlength="100" required>
+    </form>
+    <div class="actions">
+        <button type="button" class="secondary btn-nom-enregistrer">Enregistrer le nom</button>
+        <button type="button" class="btn-nom-ok" data-ok="{{ m.nomOk ? '1' : '0' }}">{{ m.nomOk ? 'Nom validé ✓' : 'Valider le nom' }}</button>
+    </div>
+
+    <h2>Adresse</h2>
+    <form class="adresse-form grid-adresse" autocomplete="off">
+        <div><label for="numVoie-{{ m.id }}">N° de voie</label><input id="numVoie-{{ m.id }}" name="numVoie" value="{{ m.numVoie }}" maxlength="10"></div>
+        <div><label for="typeVoie-{{ m.id }}">Type de voie</label><input id="typeVoie-{{ m.id }}" name="typeVoie" value="{{ m.typeVoie }}" maxlength="20"></div>
+        <div><label for="nomVoie-{{ m.id }}">Nom de la voie</label><input id="nomVoie-{{ m.id }}" name="nomVoie" value="{{ m.nomVoie }}" maxlength="100"></div>
+        <div><label for="codePostal-{{ m.id }}">Code postal</label><input id="codePostal-{{ m.id }}" name="codePostal" value="{{ m.codePostal }}" inputmode="numeric" maxlength="5"></div>
+        <div><label for="commune-{{ m.id }}">Commune</label><input id="commune-{{ m.id }}" name="commune" value="{{ m.commune }}" maxlength="100" required></div>
+    </form>
+    <div class="actions">
+        <button type="button" class="secondary btn-adresse-enregistrer">Enregistrer l'adresse</button>
+        <button type="button" class="btn-adresse-ok" data-ok="{{ m.adresseOk ? '1' : '0' }}">{{ m.adresseOk ? 'Adresse validée ✓' : 'Adresse correcte' }}</button>
+    </div>
+
+    <h2>Position</h2>
+    <form class="position-form grid-position" autocomplete="off">
+        <div><label for="latitude-{{ m.id }}">Latitude</label><input id="latitude-{{ m.id }}" name="latitude" value="{{ m.latitude }}" inputmode="decimal"></div>
+        <div><label for="longitude-{{ m.id }}">Longitude</label><input id="longitude-{{ m.id }}" name="longitude" value="{{ m.longitude }}" inputmode="decimal"></div>
+    </form>
+    <div class="actions">
+        <button type="button" class="secondary btn-coller-position">Coller depuis le presse-papier</button>
+        <button type="button" class="btn-position">Changer la position</button>
+    </div>
+    <p class="muted">Format du presse-papier : <code>latitude, longitude</code> (ex. 46.207013, 5.229934).</p>
+    <div class="message" role="status"></div>
+</article>

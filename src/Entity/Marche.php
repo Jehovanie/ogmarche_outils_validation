@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: MarcheRepository::class)]
 #[ORM\Table(name: 'marche', schema: 'ogmarche')]
 #[ORM\Index(name: 'idx_marche_dep_insee', columns: ['code_dep', 'code_insee'])]
+#[ORM\Index(name: 'idx_marche_codens', columns: ['codens'])]
 class Marche
 {
     #[ORM\Id]
@@ -31,6 +32,9 @@ class Marche
 
     #[ORM\Column(name: 'denomination_f', length: 100, nullable: true)]
     private ?string $denomination = null;
+
+    #[ORM\Column(name: 'denomination_normalise', length: 100, nullable: true)]
+    private ?string $denominationNormalise = null;
 
     #[ORM\Column(name: 'code_dep', length: 3)]
     private string $codeDep = '';
@@ -68,6 +72,13 @@ class Marche
 
     #[ORM\Column(name: 'id_ban', length: 20, nullable: true)]
     private ?string $idBan = null;
+
+    /**
+     * Cle du groupe de doublons ("id_<dep>_<n>"), partagee par les fiches liees ;
+     * null tant que la fiche n'est liee a aucune autre.
+     */
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $codens = null;
 
     // --- etat de validation ---
 
@@ -114,6 +125,11 @@ class Marche
     public function getDenomination(): ?string
     {
         return $this->denomination;
+    }
+
+    public function getDenominationNormalise(): ?string
+    {
+        return $this->denominationNormalise;
     }
 
     public function getCodeDep(): string
@@ -169,6 +185,18 @@ class Marche
     public function getIdBan(): ?string
     {
         return $this->idBan;
+    }
+
+    public function getCodens(): ?string
+    {
+        return $this->codens;
+    }
+
+    public function setCodens(?string $codens): static
+    {
+        $this->codens = $codens;
+
+        return $this;
     }
 
     public function isNomOk(): bool

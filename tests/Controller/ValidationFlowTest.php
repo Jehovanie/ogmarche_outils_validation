@@ -151,6 +151,201 @@ final class ValidationFlowTest extends WebTestCase
         self::assertEqualsWithDelta(5.229934, $fiche->getLongitude(), 1e-9);
     }
 
+    private function agentAvecPerimetre(): User
+    {
+        $agent = $this->creerAgent('agent@test.local');
+        $this->em->persist(new CommuneAttribution(self::DEP, self::INSEE, (int) $agent->getId()));
+        $this->em->flush();
+        $this->client->loginUser($agent);
+
+        return $agent;
+    }
+
+    private function codens(int $id): ?string
+    {
+        $this->em->clear();
+
+        return $this->em->find(Marche::class, $id)->getCodens();
+    }
+
+    public function testLierCreeUnGroupeAvecUnCodensParDepartement(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b, $c] = [$this->creerFiche('A'), $this->creerFiche('B'), $this->creerFiche('C')];
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$b]]);
+        self::assertResponseIsSuccessful();
+        $premier = json_decode($this->client->getResponse()->getContent(), true)['codens'];
+        self::assertMatchesRegularExpression('/^id_99_\d+$/', $premier);
+        self::assertSame($premier, $this->codens($a));
+        self::assertSame($premier, $this->codens($b));
+        self::assertNull($this->codens($c));
+
+        // un second groupe recoit un numero different
+        $this->post("/api/marche/$c/lier", $csrf, ['ids' => [$this->creerFiche('D')]]);
+        $second = json_decode($this->client->getResponse()->getContent(), true)['codens'];
+        self::assertNotSame($premier, $second);
+    }
+
+    public function testLierUneFicheAUnGroupeExistantRejointCeGroupe(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b, $c] = [$this->creerFiche('A'), $this->creerFiche('B'), $this->creerFiche('C')];
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$b]]);
+        $groupe = $this->codens($a);
+        $this->post("/api/marche/$c/lier", $csrf, ['ids' => [$a]]);
+
+        self::assertSame($groupe, $this->codens($c));
+    }
+
+    public function testLierFusionneDeuxGroupes(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b, $c, $d] = [$this->creerFiche('A'), $this->creerFiche('B'), $this->creerFiche('C'), $this->creerFiche('D')];
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$b]]);
+        $this->post("/api/marche/$c/lier", $csrf, ['ids' => [$d]]);
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$c]]);
+
+        $codens = $this->codens($a);
+        foreach ([$b, $c, $d] as $id) {
+            self::assertSame($codens, $this->codens($id));
+        }
+    }
+
+    public function testLierExigePlusieursFichesDuMemeDepartement(): void
+    {
+        $this->agentAvecPerimetre();
+        $a = $this->creerFiche('A');
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$a]]);
+        self::assertResponseStatusCodeSame(422);
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => []]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testDelierUnDoublonDissoutUnGroupeDeDeux(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b, $c] = [$this->creerFiche('A'), $this->creerFiche('B'), $this->creerFiche('C')];
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$b, $c]]);
+        $groupe = $this->codens($a);
+
+        $this->post("/api/marche/$c/delier", $csrf);
+        self::assertNull($this->codens($c));
+        self::assertSame($groupe, $this->codens($a));
+
+        // il ne reste que deux fiches : en delier une dissout le groupe
+        $this->post("/api/marche/$b/delier", $csrf);
+        self::assertNull($this->codens($a));
+        self::assertNull($this->codens($b));
+    }
+
+    public function testTraiterTraiteToutLeGroupeEtExigeChaqueFicheValidee(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b] = [$this->creerFiche('A'), $this->creerFiche('B')];
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$a/lier", $csrf, ['ids' => [$b]]);
+
+        foreach ([$a] as $id) {
+            $this->post("/api/marche/$id/nom-ok", $csrf);
+            $this->post("/api/marche/$id/adresse-ok", $csrf);
+        }
+        // B n'est pas validee : tout le groupe reste a traiter
+        $this->post("/api/marche/$a/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        $this->em->clear();
+        self::assertFalse($this->em->find(Marche::class, $a)->isTraite());
+
+        $this->post("/api/marche/$b/nom-ok", $csrf);
+        $this->post("/api/marche/$b/adresse-ok", $csrf);
+        $this->post("/api/marche/$a/traite", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertTrue($this->em->find(Marche::class, $a)->isTraite());
+        self::assertTrue($this->em->find(Marche::class, $b)->isTraite());
+    }
+
+    public function testLaFicheAffichePresenteTousLesDoublonsDuGroupe(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b] = [$this->creerFiche('Alpha'), $this->creerFiche('Beta')];
+        $this->post("/api/marche/$a/lier", $this->csrf(), ['ids' => [$b]]);
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+
+        self::assertCount(2, $crawler->filter('.fiche-card'));
+        // ?fiche= garde l'agent sur la fiche demandee
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE."?fiche=$b");
+        self::assertCount(2, $crawler->filter('.fiche-card'));
+    }
+
+    public function testCandidatsParCodePostalOuParCommuneDansLePerimetre(): void
+    {
+        $agent = $this->agentAvecPerimetre();
+        $this->em->persist(new CommuneAttribution(self::DEP, '99003', (int) $agent->getId()));
+        $a = $this->creerFiche('A', self::DEP, self::INSEE, '99100', 'Testville');
+        $memeCp = $this->creerFiche('Meme CP', self::DEP, '99003', '99100', 'Voisinville');
+        $memeCommune = $this->creerFiche('Meme commune', self::DEP, self::INSEE, '99200', 'Testville');
+        $this->creerFiche('Autre', self::DEP, self::INSEE, '99300', 'Ailleurs');
+        // meme code postal mais commune non attribuee a l'agent : jamais proposee
+        $this->creerFiche('Hors perimetre', self::DEP, '99002', '99100', 'Testville');
+
+        $this->client->request('GET', "/api/marche/$a/candidats?champ=cp");
+        self::assertResponseIsSuccessful();
+        self::assertSame([$memeCp], array_column(json_decode($this->client->getResponse()->getContent(), true), 'id'));
+
+        $this->client->request('GET', "/api/marche/$a/candidats?champ=commune");
+        $lignes = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertSame([$memeCommune], array_column($lignes, 'id'));
+        // colonnes attendues par le tableau
+        self::assertSame(['id', 'denominationNormalise', 'numVoie', 'typeVoie', 'nomVoie', 'codePostal', 'commune', 'codens'], array_keys($lignes[0]));
+
+        $this->client->request('GET', "/api/marche/$a/candidats?champ=autre");
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testCandidatsExcluentLeGroupeEtLesFichesTraitees(): void
+    {
+        $this->agentAvecPerimetre();
+        [$a, $b, $c] = [$this->creerFiche('A'), $this->creerFiche('B'), $this->creerFiche('C')];
+        $this->post("/api/marche/$a/lier", $this->csrf(), ['ids' => [$b]]);
+
+        $this->client->request('GET', "/api/marche/$a/candidats?champ=commune");
+        self::assertSame([$c], array_column(json_decode($this->client->getResponse()->getContent(), true), 'id'));
+    }
+
+    public function testLaPageAfficheLesBoutonsDeRecherchePreremplis(): void
+    {
+        $this->agentAvecPerimetre();
+        $this->creerFiche('A', self::DEP, self::INSEE, '99100', 'Testville');
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+
+        self::assertStringContainsString('99100', $crawler->filter('#btn-search-cp')->text());
+        self::assertStringContainsString('Testville', $crawler->filter('#btn-search-commune')->text());
+        self::assertCount(1, $crawler->filter('#doublons-table'));
+    }
+
+    public function testAgentNeLiePasLesFichesDUneCommuneNonAttribuee(): void
+    {
+        $this->agentAvecPerimetre();
+        $a = $this->creerFiche('A');
+        $etranger = $this->creerFiche('Z', self::DEP, '99002');
+
+        $this->post("/api/marche/$a/lier", $this->csrf(), ['ids' => [$etranger]]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertNull($this->codens($a));
+    }
+
     public function testAgentNeToucheQueSonPerimetre(): void
     {
         $proprietaire = $this->creerAgent('proprietaire@test.local');
@@ -194,11 +389,11 @@ final class ValidationFlowTest extends WebTestCase
         return $user;
     }
 
-    private function creerFiche(): int
+    private function creerFiche(string $denomination = 'Marché de test', string $dep = self::DEP, string $insee = self::INSEE, ?string $codePostal = null, string $commune = 'Testville'): int
     {
         $marche = new Marche();
         $rc = new \ReflectionClass(Marche::class);
-        foreach (['codeDep' => self::DEP, 'codeInsee' => self::INSEE, 'commune' => 'Testville', 'denomination' => 'Marché de test'] as $prop => $valeur) {
+        foreach (['codeDep' => $dep, 'codeInsee' => $insee, 'commune' => $commune, 'codePostal' => $codePostal, 'denomination' => $denomination] as $prop => $valeur) {
             $rc->getProperty($prop)->setValue($marche, $valeur);
         }
         $this->em->persist($marche);
