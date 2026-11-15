@@ -103,7 +103,7 @@ final class AdresseApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    /** Doublons possibles : ?champ=cp (meme code postal) ou ?champ=commune (meme commune). */
+    /** Doublons possibles : ?champ=cp (meme code postal), commune (meme commune) ou denomination (meme nom). */
     #[Route('/candidats', name: 'api_marche_candidats', methods: ['GET'])]
     public function candidats(int $id, Request $request): JsonResponse
     {

@@ -28,8 +28,12 @@
 
     <article class="card" id="doublons">
         <h2>Doublons</h2>
-        <p class="muted">Cherchez les fiches de vos communes qui partagent le code postal ou la commune de cette fiche, puis liez celles qui désignent le même marché : elles seront validées ensemble.</p>
+        <p class="muted">Cherchez les fiches de vos communes qui partagent le code postal, la commune ou la dénomination de cette fiche, puis liez celles qui désignent le même marché : elles seront validées ensemble.</p>
         <div class="actions">
+            {% set nomRecherche = marche.denominationNormalise ?: marche.denomination %}
+            <button type="button" class="secondary" id="btn-search-denomination" {% if not nomRecherche %}disabled{% endif %}>
+                Recherche par dénomination ({{ nomRecherche ?: 'aucune' }})
+            </button>
             <button type="button" class="secondary" id="btn-search-cp" {% if not marche.codePostal %}disabled{% endif %}>
                 Recherche par code postal ({{ marche.codePostal ?: 'aucun' }})
             </button>

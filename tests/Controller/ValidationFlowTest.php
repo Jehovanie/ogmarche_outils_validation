@@ -312,6 +312,22 @@ final class ValidationFlowTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
+    public function testCandidatsParDenomination(): void
+    {
+        $agent = $this->agentAvecPerimetre();
+        $this->em->persist(new CommuneAttribution(self::DEP, '99003', (int) $agent->getId()));
+        $a = $this->creerFiche('Marché du centre');
+        $memeNom = $this->creerFiche('Marché du centre', self::DEP, '99003');
+        $this->creerFiche('Marché du port');
+        // meme nom mais commune non attribuee a l'agent : jamais propose
+        $this->creerFiche('Marché du centre', self::DEP, '99002');
+
+        $this->client->request('GET', "/api/marche/$a/candidats?champ=denomination");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$memeNom], array_column(json_decode($this->client->getResponse()->getContent(), true), 'id'));
+    }
+
     public function testCandidatsExcluentLeGroupeEtLesFichesTraitees(): void
     {
         $this->agentAvecPerimetre();
@@ -331,6 +347,7 @@ final class ValidationFlowTest extends WebTestCase
 
         self::assertStringContainsString('99100', $crawler->filter('#btn-search-cp')->text());
         self::assertStringContainsString('Testville', $crawler->filter('#btn-search-commune')->text());
+        self::assertStringContainsString('(A)', $crawler->filter('#btn-search-denomination')->text());
         self::assertCount(1, $crawler->filter('#doublons-table'));
     }
 

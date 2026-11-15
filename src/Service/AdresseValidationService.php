@@ -171,15 +171,15 @@ final class AdresseValidationService
     }
 
     /**
-     * Fiches a lier proposees a l'agent, par code postal ou par commune de la fiche.
+     * Fiches a lier proposees a l'agent, par code postal, commune ou denomination de la fiche.
      *
-     * @param 'cp'|'commune' $champ
+     * @param 'cp'|'commune'|'denomination' $champ
      *
      * @return list<Marche>
      */
     public function candidats(int $id, string $champ, User $user): array
     {
-        if (!\in_array($champ, ['cp', 'commune'], true)) {
+        if (!\in_array($champ, ['cp', 'commune', 'denomination'], true)) {
             throw new \InvalidArgumentException('Champ de recherche inconnu.');
         }
 

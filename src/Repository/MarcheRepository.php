@@ -82,15 +82,23 @@ class MarcheRepository extends ServiceEntityRepository
     /**
      * Fiches que l'agent peut lier a $marche : meme departement, dans ses communes, qui ont
      * le meme code postal (champ "cp") ou le meme nom de commune (champ "commune") que la
-     * fiche. Les fiches deja traitees et celles du groupe de $marche sont exclues.
+     * fiche, ou la meme denomination normalisee (champ "denomination", repli sur le nom brut
+     * si la fiche n'a pas de denomination normalisee). Les fiches deja traitees et celles du
+     * groupe de $marche sont exclues.
      *
-     * @param 'cp'|'commune' $champ
+     * @param 'cp'|'commune'|'denomination' $champ
      *
      * @return list<Marche>
      */
     public function candidatsDoublon(Marche $marche, int $userId, string $champ, int $limite = 2000): array
     {
-        $valeur = 'cp' === $champ ? $marche->getCodePostal() : $marche->getCommune();
+        [$valeur, $colonne] = match ($champ) {
+            'cp' => [$marche->getCodePostal(), 'm.codePostal'],
+            'commune' => [$marche->getCommune(), 'm.commune'],
+            'denomination' => null !== $marche->getDenominationNormalise() && '' !== trim($marche->getDenominationNormalise())
+                ? [$marche->getDenominationNormalise(), 'm.denominationNormalise']
+                : [$marche->getDenomination(), 'm.denomination'],
+        };
         if (null === $valeur || '' === trim($valeur)) {
             return [];
         }
@@ -101,7 +109,7 @@ class MarcheRepository extends ServiceEntityRepository
             ->andWhere('m.codeDep = :dep')
             ->andWhere('m.id <> :id')
             ->andWhere('m.traite = false')
-            ->andWhere('cp' === $champ ? 'm.codePostal = :valeur' : 'm.commune = :valeur')
+            ->andWhere($colonne.' = :valeur')
             ->setParameter('user', $userId)
             ->setParameter('dep', $marche->getCodeDep())
             ->setParameter('id', $marche->getId())

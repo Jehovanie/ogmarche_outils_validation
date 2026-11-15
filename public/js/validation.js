@@ -147,6 +147,7 @@
     const tableEl = document.getElementById('doublons-table');
     const btnCp = document.getElementById('btn-search-cp');
     const btnCommune = document.getElementById('btn-search-commune');
+    const btnDenomination = document.getElementById('btn-search-denomination');
     let dataTable = null;
 
     const francais = {
@@ -198,6 +199,7 @@
 
     btnCp.addEventListener('click', () => rechercher('cp'));
     btnCommune.addEventListener('click', () => rechercher('commune'));
+    btnDenomination.addEventListener('click', () => rechercher('denomination'));
     document.getElementById('btn-search-reset').addEventListener('click', vider);
 
     // bouton "Lier" de chaque ligne : lie cette fiche au groupe de la fiche courante
