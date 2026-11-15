@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+{% block title %}Départements{% endblock %}
+{% block body %}
+<h1>Mes départements</h1>
+{% if items is empty %}
+    <p class="card muted">Aucun département ne vous est attribué.</p>
+{% else %}
+<table class="card">
+    <thead><tr><th>Département</th><th>Fiches</th><th>À traiter</th></tr></thead>
+    <tbody>
+    {% for item in items %}
+        <tr>
+            <td><a href="{{ path('app_communes', {dep: item.codeDep}) }}">{{ item.codeDep }}</a></td>
+            <td>{{ item.total }}</td>
+            <td>{{ item.aTraiter }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

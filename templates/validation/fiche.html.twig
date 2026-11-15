@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+{% block title %}Fiche {{ marche.id }}{% endblock %}
+{% block javascripts %}<script src="{{ asset('js/validation.js') }}" defer></script>{% endblock %}
+{% block body %}
+<p><a href="{{ path('app_communes', {dep: dep}) }}">← Communes du {{ dep }}</a></p>
+<section class="card fiche" id="fiche"
+         data-id="{{ marche.id }}"
+         data-csrf="{{ csrf_token('marche') }}"
+         data-next="{{ path('app_fiche', {dep: dep, insee: insee}) }}"
+         data-communes="{{ path('app_communes', {dep: dep}) }}"
+         data-api="{{ path('api_marche_adresse', {id: marche.id}) }}"
+         data-api-position="{{ path('api_marche_position', {id: marche.id}) }}"
+         data-api-nom="{{ path('api_marche_nom', {id: marche.id}) }}">
+    <div class="fiche-head">
+        <button type="button" id="btn-traite">Traiter et passer à la suivante</button>
+        <button type="button" id="btn-google" class="secondary">Recherche Google</button>
+        <button type="button" id="btn-maps" class="secondary">Google Maps</button>
+    </div>
+    <h2>Nom de l'établissement</h2>
+    <form id="nom-form" autocomplete="off">
+        <label for="denomination">Nom actuel</label>
+        <input id="denomination" name="denomination" value="{{ marche.denomination }}" maxlength="100" required>
+    </form>
+    <div class="actions">
+        <button type="button" id="btn-nom-enregistrer" class="secondary">Enregistrer le nom</button>
+        <button type="button" id="btn-nom-ok" data-ok="{{ marche.nomOk ? '1' : '0' }}">{{ marche.nomOk ? 'Nom validé ✓' : 'Valider le nom' }}</button>
+    </div>
+
+    <h2>Adresse</h2>
+    <form id="adresse-form" class="grid-adresse" autocomplete="off">
+        <div><label for="numVoie">N° de voie</label><input id="numVoie" name="numVoie" value="{{ marche.numVoie }}" maxlength="10"></div>
+        <div><label for="typeVoie">Type de voie</label><input id="typeVoie" name="typeVoie" value="{{ marche.typeVoie }}" maxlength="20"></div>
+        <div><label for="nomVoie">Nom de la voie</label><input id="nomVoie" name="nomVoie" value="{{ marche.nomVoie }}" maxlength="100"></div>
+        <div><label for="codePostal">Code postal</label><input id="codePostal" name="codePostal" value="{{ marche.codePostal }}" inputmode="numeric" maxlength="5"></div>
+        <div><label for="commune">Commune</label><input id="commune" name="commune" value="{{ marche.commune }}" maxlength="100" required></div>
+    </form>
+
+    <div class="actions">
+        <button type="button" id="btn-enregistrer" class="secondary">Enregistrer l'adresse</button>
+        <button type="button" id="btn-ok" data-ok="{{ marche.adresseOk ? '1' : '0' }}">{{ marche.adresseOk ? 'Adresse validée ✓' : 'Adresse correcte' }}</button>
+    </div>
+
+    <h2>Position</h2>
+    <form id="position-form" class="grid-position" autocomplete="off">
+        <div><label for="latitude">Latitude</label><input id="latitude" name="latitude" value="{{ marche.latitude }}" inputmode="decimal"></div>
+        <div><label for="longitude">Longitude</label><input id="longitude" name="longitude" value="{{ marche.longitude }}" inputmode="decimal"></div>
+    </form>
+    <div class="actions">
+        <button type="button" id="btn-coller-position" class="secondary">Coller depuis le presse-papier</button>
+        <button type="button" id="btn-position">Changer la position</button>
+    </div>
+    <p class="muted">Format du presse-papier : <code>latitude, longitude</code> (ex. 46.207013, 5.229934).</p>
+    <div id="message" role="status"></div>
+</section>
+{% endblock %}

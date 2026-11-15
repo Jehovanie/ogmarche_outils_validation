@@ -1,0 +1,34 @@
+:root { --fg: #1f2933; --muted: #6b7785; --accent: #1d6f5a; --warn: #b45309; --bg: #f5f7f6; --card: #fff; --line: #d9e0dd; }
+@media (prefers-color-scheme: dark) { :root { --fg: #e6ece9; --muted: #9aa8a2; --accent: #4cb39a; --warn: #f0a24a; --bg: #14191a; --card: #1d2426; --line: #2f3a3d; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+a { color: var(--accent); }
+.topbar { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; background: var(--card); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 600; text-decoration: none; }
+main { max-width: 56rem; margin: 0 auto; padding: 1rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .5rem; border-bottom: 1px solid var(--line); }
+.muted { color: var(--muted); }
+.grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+label { display: block; font-size: .85rem; color: var(--muted); }
+input { width: 100%; padding: .5rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+button { padding: .5rem .9rem; font: inherit; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; cursor: pointer; }
+button.secondary { background: transparent; color: var(--accent); }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.flash { padding: .5rem .75rem; border-radius: 6px; margin-top: .75rem; }
+.flash.ok { border: 1px solid var(--accent); }
+.flash.warn { border: 1px solid var(--warn); color: var(--warn); }
+.error { color: var(--warn); }
+@media (max-width: 480px) { main { padding: .75rem; } }
+
+/* Page de validation d'une fiche : bloc elargi */
+main:has(.fiche) { max-width: 80rem; }
+.fiche { padding: 1.5rem; }
+.fiche-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .75rem; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); }
+.fiche h2 { margin: 1.25rem 0 .5rem; font-size: 1.1rem; }
+/* champs d'adresse alignes sur une seule ligne */
+.grid-adresse { display: grid; gap: .75rem; grid-template-columns: 6rem 8rem minmax(12rem, 2fr) 8rem minmax(10rem, 1fr); align-items: end; }
+.grid-position { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 14rem)); }
+@media (max-width: 900px) { .grid-adresse { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .grid-adresse { grid-template-columns: 1fr; } }

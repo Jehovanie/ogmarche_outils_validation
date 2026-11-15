@@ -1,0 +1,46 @@
+doctrine:
+    dbal:
+        # Connexion lue depuis les variables en minuscules de .env (pas de DATABASE_URL)
+        driver: pdo_pgsql
+        host: '%env(database_host)%'
+        port: '%env(int:database_port)%'
+        dbname: '%env(database_name)%'
+        user: '%env(database_user)%'
+        password: '%env(database_password)%'
+        charset: utf8
+        server_version: '16'
+        # Doctrine ne gere que les tables de l'outil : 'user' (schema public) et le schema
+        # ogmarche. marche_geocode_raw (import brut du CSV) reste hors Doctrine.
+        schema_filter: '~^((public\.)?user|doctrine_migration_versions|ogmarche\.(marche|commune_attribution))$~'
+
+        profiling_collect_backtrace: '%kernel.debug%'
+    orm:
+        validate_xml_mapping: true
+        naming_strategy: doctrine.orm.naming_strategy.underscore
+        identity_generation_preferences:
+            Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        auto_mapping: true
+        mappings:
+            App:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Entity'
+                prefix: 'App\Entity'
+
+when@prod:
+    doctrine:
+        orm:
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system
