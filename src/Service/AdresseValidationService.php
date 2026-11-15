@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Dto\AdresseDto;
+use App\Dto\HoraireDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
 use App\Dto\ProduitsDto;
@@ -90,6 +91,22 @@ final class AdresseValidationService
         return $avertissements;
     }
 
+    public function changerHoraire(int $id, HoraireDto $dto, User $user): void
+    {
+        // jours dans l'ordre de la semaine, quel que soit l'ordre recu
+        $jours = array_values(array_intersect(HoraireDto::JOURS, $dto->jours));
+        $heure = static fn (?string $h): ?\DateTimeImmutable => null === $h || '' === $h ? null : new \DateTimeImmutable('1970-01-01 '.$h);
+
+        $this->fiche($id, $user)->changeHoraire($jours, $heure($dto->heureDebut), $heure($dto->heureFin), $dto->touteAnnee, $dto->moisDebut, $dto->moisFin);
+        $this->em->flush();
+    }
+
+    public function definirHoraireOk(int $id, bool $ok, User $user): void
+    {
+        $this->fiche($id, $user)->setHoraireOk($ok);
+        $this->em->flush();
+    }
+
     public function definirProduitsOk(int $id, bool $ok, User $user): void
     {
         $this->fiche($id, $user)->setProduitsOk($ok);
@@ -110,7 +127,7 @@ final class AdresseValidationService
 
     /**
      * Traite la fiche, et tout son groupe de doublons le cas echeant. Chaque fiche doit avoir
-     * ses produits valides, sauf s'ils sont vides ; une fiche
+     * ses horaires verifies (s'il y a un horaire_brut) et ses produits valides (s'il y en a) ; une fiche
      * EXISTANCE_AVALIDER doit aussi avoir son nom et son adresse.
      *
      * @throws \DomainException si une validation exigee manque sur une fiche du groupe
@@ -128,6 +145,9 @@ final class AdresseValidationService
                 if (!$marche->isAdresseOk()) {
                     throw new \DomainException(\sprintf("L'adresse doit être validée avant de traiter la fiche %d.", $marche->getId()));
                 }
+            }
+            if ($marche->exigeValidationHoraire() && !$marche->isHoraireOk()) {
+                throw new \DomainException(\sprintf('Les horaires doivent être vérifiés avant de traiter la fiche %d.', $marche->getId()));
             }
             if ($marche->exigeValidationProduits() && !$marche->isProduitsOk()) {
                 throw new \DomainException(\sprintf('Les produits doivent être validés avant de traiter la fiche %d.', $marche->getId()));

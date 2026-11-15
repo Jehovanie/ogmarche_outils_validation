@@ -31,6 +31,17 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 .badge-existance { color: var(--warn); }
 .badge-specification { color: var(--accent); }
 #fiche h2 .facultatif, #fiche h2 .produits-vides { font-size: .85rem; font-weight: normal; }
+.horaire-brut { margin: 0 0 .75rem; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: var(--bg); }
+.horaire-form { display: grid; gap: .75rem; }
+.horaire-form fieldset { margin: 0; padding: 0; border: 0; }
+.horaire-form legend { padding: 0; font-size: .85rem; color: var(--muted); }
+.jours { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.jours label, .toute-annee label { display: inline-flex; align-items: center; gap: .35rem; font-size: 1rem; color: var(--fg); }
+.horaire-form input[type="checkbox"] { width: auto; }
+select { width: 100%; padding: .5rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+select:disabled { opacity: .5; }
+.grid-horaire { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+.grid-horaire .toute-annee { grid-column: 1 / -1; }
 .produits-form { display: grid; gap: .75rem; }
 .produits-form textarea { resize: vertical; }
 .grid-position { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -42,20 +53,27 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 .doublons-resultats .dataTables_wrapper .dataTables_paginate .paginate_button { color: var(--fg) !important; }
 .doublons-resultats .dataTables_wrapper input, .doublons-resultats .dataTables_wrapper select { width: auto; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .25rem .4rem; }
 
-/* Fiches du groupe cote a cote, deux par ligne ; une fiche seule reste a gauche, a demi-largeur */
-.fiche-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; margin-bottom: 1rem; }
+/* Fiches du groupe l'une sous l'autre, chacune sur toute la largeur */
+.fiche-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem; }
 .fiche-grid .card { margin-bottom: 0; }
-@media (max-width: 900px) { .fiche-grid { grid-template-columns: 1fr; } }
+/* dans une fiche : nom, adresse, position | produits, horaires ; une seule colonne si la fiche est etroite */
+.fiche-card { container-type: inline-size; }
+.fiche-colonnes { display: grid; grid-template-columns: 1fr; align-items: start; }
+.fiche-colonne > h2:first-of-type { margin-top: 1rem; }
+@container (min-width: 50rem) {
+    .fiche-colonnes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .fiche-colonne:first-child { padding-right: 2rem; }
+    .fiche-colonne + .fiche-colonne { padding-left: 2rem; border-left: 1px solid var(--line); }
+}
 /* adresse sur deux lignes dans une carte a demi-largeur */
 .grid-adresse { display: grid; gap: .75rem; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; }
 .grid-adresse > :nth-child(1), .grid-adresse > :nth-child(2), .grid-adresse > :nth-child(4) { grid-column: span 2; }
 .grid-adresse > :nth-child(3), .grid-adresse > :nth-child(5) { grid-column: span 3; }
 @media (max-width: 480px) { .grid-adresse > * { grid-column: 1 / -1 !important; } }
 
-/* Outils de verification : petits boutons, deux colonnes empilees, alignees a droite de l'en-tete de la fiche */
+/* Recherches externes : petits boutons sur une ligne, alignes a droite de l'en-tete de la fiche */
 .fiche-card-head { align-items: flex-start; }
 .fiche-card-titre { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.outils-verif { display: flex; gap: .6rem; margin-left: auto; }
-.outils-col { display: flex; flex-direction: column; gap: .35rem; }
+.outils-verif { display: flex; flex-wrap: wrap; gap: .5rem; margin-left: auto; }
 button.small { padding: .35rem .9rem; font-size: .9rem; text-align: center; white-space: nowrap; }
-@media (max-width: 480px) { .outils-verif { margin-left: 0; width: 100%; } .outils-col { flex: 1; } }
+@media (max-width: 480px) { .outils-verif { margin-left: 0; width: 100%; } .outils-verif button { flex: 1; } }

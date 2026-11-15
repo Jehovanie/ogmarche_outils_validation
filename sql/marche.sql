@@ -13,12 +13,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_marche_geocode_raw_row_id ON ogmarche.mar
 INSERT INTO ogmarche.marche (
     raw_row_id, unique_id, id_marche, denomination_f, denomination_normalise, code_dep,
     num_voie, type_voie, nom_voie, code_postal, commune, code_insee,
-    longitude, latitude, precision, id_ban, produits, specificite, action_type
+    longitude, latitude, precision, id_ban, produits, specificite, action_type,
+    horaire_brut, jours_txt, heure_debut, heure_fin, toute_annee, mois_debut, mois_fin
 )
 SELECT
     r.row_id, r.unique_id, r.id_marche, r.denomination_f, r.denomination_normalise, r.code_dep,
     r.num_voie, r.type_voie, r.nom_voie, r.code_postal, r.commune, r.code_insee,
-    r.longitude, r.latitude, r.precision, r.id_ban, r.produits, r.specificite, r.action_type
+    r.longitude, r.latitude, r.precision, r.id_ban, r.produits, r.specificite, r.action_type,
+    NULLIF(btrim(r.horaire_brut), ''), NULLIF(btrim(r.jours_txt), ''), r.heure_debut, r.heure_fin, r.toute_annee,
+    NULLIF(btrim(r.mois_debut), ''), NULLIF(btrim(r.mois_fin), '')
 FROM ogmarche.marche_geocode_raw r
 WHERE (r.is_deleted IS NULL OR r.is_deleted = 0)
   AND NOT EXISTS (SELECT 1 FROM ogmarche.marche)

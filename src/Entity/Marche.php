@@ -60,6 +60,31 @@ class Marche
     #[ORM\Column(name: 'code_insee', length: 5, nullable: true)]
     private ?string $codeInsee = null;
 
+    // --- horaires : horaire_brut (texte d'origine, lecture seule) et ce qui en a ete extrait ---
+
+    #[ORM\Column(name: 'horaire_brut', length: 255, nullable: true)]
+    private ?string $horaireBrut = null;
+
+    /** Jours de marche, dans l'ordre de la semaine : "mardi, samedi". */
+    #[ORM\Column(name: 'jours_txt', length: 100, nullable: true)]
+    private ?string $joursTxt = null;
+
+    #[ORM\Column(name: 'heure_debut', type: Types::TIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $heureDebut = null;
+
+    #[ORM\Column(name: 'heure_fin', type: Types::TIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $heureFin = null;
+
+    #[ORM\Column(name: 'toute_annee', nullable: true)]
+    private ?bool $touteAnnee = null;
+
+    /** Mois en minuscules ("juillet"), seulement si le marche n'a pas lieu toute l'annee. */
+    #[ORM\Column(name: 'mois_debut', length: 10, nullable: true)]
+    private ?string $moisDebut = null;
+
+    #[ORM\Column(name: 'mois_fin', length: 10, nullable: true)]
+    private ?string $moisFin = null;
+
     // --- produits (sans mention de jour ni d'horaire) ---
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
@@ -104,6 +129,9 @@ class Marche
 
     #[ORM\Column(name: 'produits_ok', options: ['default' => false])]
     private bool $produitsOk = false;
+
+    #[ORM\Column(name: 'horaire_ok', options: ['default' => false])]
+    private bool $horaireOk = false;
 
     /** Fiche entierement traitee par l'agent. */
     #[ORM\Column(options: ['default' => false])]
@@ -184,6 +212,47 @@ class Marche
         return $this->codeInsee;
     }
 
+    public function getHoraireBrut(): ?string
+    {
+        return $this->horaireBrut;
+    }
+
+    public function getJoursTxt(): ?string
+    {
+        return $this->joursTxt;
+    }
+
+    /** @return list<string> */
+    public function getJours(): array
+    {
+        return null === $this->joursTxt ? [] : array_values(array_filter(array_map('trim', explode(',', $this->joursTxt))));
+    }
+
+    public function getHeureDebut(): ?\DateTimeImmutable
+    {
+        return $this->heureDebut;
+    }
+
+    public function getHeureFin(): ?\DateTimeImmutable
+    {
+        return $this->heureFin;
+    }
+
+    public function isTouteAnnee(): ?bool
+    {
+        return $this->touteAnnee;
+    }
+
+    public function getMoisDebut(): ?string
+    {
+        return $this->moisDebut;
+    }
+
+    public function getMoisFin(): ?string
+    {
+        return $this->moisFin;
+    }
+
     public function getProduits(): ?string
     {
         return $this->produits;
@@ -255,6 +324,43 @@ class Marche
     public function getActionType(): ActionType
     {
         return $this->actionType;
+    }
+
+    /** Pas d'horaire_brut : rien a comparer, donc rien a verifier. */
+    public function exigeValidationHoraire(): bool
+    {
+        return '' !== trim((string) $this->horaireBrut);
+    }
+
+    public function isHoraireOk(): bool
+    {
+        return $this->horaireOk;
+    }
+
+    /**
+     * Corrige les horaires extraits de horaire_brut ; une fois modifies, ils ne sont plus
+     * consideres comme valides. Toute l'annee : les mois n'ont pas de sens et sont effaces.
+     *
+     * @param list<string> $jours
+     */
+    public function changeHoraire(array $jours, ?\DateTimeImmutable $heureDebut, ?\DateTimeImmutable $heureFin, bool $touteAnnee, ?string $moisDebut, ?string $moisFin): static
+    {
+        $this->joursTxt = [] === $jours ? null : implode(', ', $jours);
+        $this->heureDebut = $heureDebut;
+        $this->heureFin = $heureFin;
+        $this->touteAnnee = $touteAnnee;
+        $this->moisDebut = $touteAnnee ? null : $moisDebut;
+        $this->moisFin = $touteAnnee ? null : $moisFin;
+        $this->horaireOk = false;
+
+        return $this;
+    }
+
+    public function setHoraireOk(bool $horaireOk): static
+    {
+        $this->horaireOk = $horaireOk;
+
+        return $this;
     }
 
     /** Produits vides : rien a verifier, tant que l'agent n'en ajoute pas. */

@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Dto\AdresseDto;
+use App\Dto\HoraireDto;
 use App\Dto\LierDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
@@ -65,6 +66,24 @@ final class AdresseApiController extends AbstractController
     {
         $this->checkCsrf($request);
         $this->validation->definirAdresseOk($id, $request->query->getBoolean('valeur', true), $this->agent());
+
+        return $this->json(['ok' => true]);
+    }
+
+    #[Route('/horaire', name: 'api_marche_horaire', methods: ['POST'])]
+    public function changerHoraire(int $id, Request $request, #[MapRequestPayload] HoraireDto $horaire): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $this->validation->changerHoraire($id, $horaire, $this->agent());
+
+        return $this->json(['ok' => true]);
+    }
+
+    #[Route('/horaire-ok', name: 'api_marche_horaire_ok', methods: ['POST'])]
+    public function horaireOk(int $id, Request $request): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $this->validation->definirHoraireOk($id, $request->query->getBoolean('valeur', true), $this->agent());
 
         return $this->json(['ok' => true]);
     }

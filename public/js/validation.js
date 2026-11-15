@@ -37,7 +37,7 @@
 
     // ---------------------------------------------------------------- une fiche du groupe
     const initCard = (card) => {
-        const { id, apiAdresse, apiNom, apiPosition, apiProduits, apiProduitsOk, apiDelier } = card.dataset;
+        const { id, apiAdresse, apiNom, apiPosition, apiHoraire, apiHoraireOk, apiProduits, apiProduitsOk, apiDelier } = card.dataset;
         const $ = (sel) => card.querySelector(sel);
         const nomForm = $('.nom-form');
         const adresseForm = $('.adresse-form');
@@ -51,6 +51,9 @@
         let nomDirty = false;
         let adresseDirty = false;
         let produitsDirty = false;
+        const horaireForm = $('.horaire-form');
+        const btnHoraireOk = $('.btn-horaire-ok');
+        let horaireDirty = false;
 
         const show = (text, kind = 'ok') => { message.className = `message flash ${kind}`; message.textContent = text; };
         const setOk = (btn, ok, on, off) => { btn.dataset.ok = ok ? '1' : '0'; btn.textContent = ok ? on : off; };
@@ -104,6 +107,41 @@
             show(avert ? `Produits enregistrés. ${avert}` : 'Produits enregistrés.', avert ? 'warn' : 'ok');
             return true;
         };
+
+        // horaires : "toute l'annee" rend les mois sans objet
+        const basculerMois = () => {
+            const touteAnnee = horaireForm.elements.touteAnnee.checked;
+            horaireForm.elements.moisDebut.disabled = touteAnnee;
+            horaireForm.elements.moisFin.disabled = touteAnnee;
+        };
+        horaireForm.addEventListener('change', () => {
+            horaireDirty = true;
+            setOk(btnHoraireOk, false, '', 'Horaires corrects');
+            basculerMois();
+        });
+        const enregistrerHoraire = async () => {
+            const f = horaireForm.elements;
+            const { res, data } = await post(apiHoraire, {
+                jours: [...horaireForm.querySelectorAll('input[name="jours"]:checked')].map((c) => c.value),
+                heureDebut: f.heureDebut.value || null,
+                heureFin: f.heureFin.value || null,
+                touteAnnee: f.touteAnnee.checked,
+                moisDebut: f.touteAnnee.checked ? null : f.moisDebut.value || null,
+                moisFin: f.touteAnnee.checked ? null : f.moisFin.value || null,
+            });
+            if (!res.ok) { show(res.status === 422 ? violations(data, 'Horaires invalides.') : 'Enregistrement impossible.', 'warn'); return false; }
+            horaireDirty = false;
+            show('Horaires enregistrés.');
+            return true;
+        };
+        $('.btn-horaire-enregistrer').addEventListener('click', enregistrerHoraire);
+        btnHoraireOk.addEventListener('click', async () => {
+            if (horaireDirty && !(await enregistrerHoraire())) return;
+            const valeur = btnHoraireOk.dataset.ok !== '1';
+            const { res } = await post(`${apiHoraireOk}?valeur=${valeur ? 1 : 0}`);
+            if (!res.ok) return show('Action impossible.', 'warn');
+            setOk(btnHoraireOk, valeur, 'Horaires vérifiés ✓', 'Horaires corrects');
+        });
 
         $('.btn-nom-enregistrer').addEventListener('click', enregistrerNom);
         $('.btn-adresse-enregistrer').addEventListener('click', enregistrerAdresse);
@@ -188,6 +226,7 @@
         return {
             flush: async () => (!nomDirty || await enregistrerNom())
                 && (!adresseDirty || await enregistrerAdresse())
+                && (!horaireDirty || await enregistrerHoraire())
                 && (!produitsDirty || await enregistrerProduits()),
         };
     };

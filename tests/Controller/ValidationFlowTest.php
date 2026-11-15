@@ -302,6 +302,105 @@ final class ValidationFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function testLaFicheAfficheLHoraireBrutEtLesHorairesExtraits(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFicheAvecHoraire();
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+
+        self::assertSelectorTextContains('.horaire-brut', 'de Juillet à Août le mercredi de 19h à 23h');
+        self::assertSame(['mercredi'], $crawler->filter('input[name="jours"]:checked')->each(static fn ($n) => $n->attr('value')));
+        self::assertSame('19:00', $crawler->filter("#heureDebut-$id")->attr('value'));
+        self::assertSame('23:00', $crawler->filter("#heureFin-$id")->attr('value'));
+        self::assertNull($crawler->filter('input[name="touteAnnee"]')->attr('checked'));
+        self::assertSame('juillet', $crawler->filter("#moisDebut-$id option[selected]")->attr('value'));
+        self::assertSame('août', $crawler->filter("#moisFin-$id option[selected]")->attr('value'));
+        self::assertNull($crawler->filter('.btn-horaire-ok')->attr('hidden'));
+    }
+
+    public function testUnHoraireBrutExigeLaVerificationDesHoraires(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFicheAvecHoraire();
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('horaires', json_decode($this->client->getResponse()->getContent(), true)['message']);
+
+        $this->post("/api/marche/$id/horaire-ok", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testSansHoraireBrutRienAVerifier(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertCount(0, $crawler->filter('.horaire-brut'));
+        self::assertNotNull($crawler->filter('.btn-horaire-ok')->attr('hidden'));
+
+        $this->post("/api/marche/$id/traite", $this->csrf());
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testCorrigerLesHoraires(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFicheAvecHoraire();
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$id/horaire-ok", $csrf);
+
+        // jours recus dans le desordre, toute l'annee : les mois sont effaces
+        $this->post("/api/marche/$id/horaire", $csrf, ['jours' => ['samedi', 'mercredi'], 'heureDebut' => '08:00', 'heureFin' => '12:30', 'touteAnnee' => true, 'moisDebut' => 'juillet', 'moisFin' => 'août']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        $fiche = $this->em->find(Marche::class, $id);
+        self::assertSame('mercredi, samedi', $fiche->getJoursTxt());
+        self::assertSame('08:00', $fiche->getHeureDebut()->format('H:i'));
+        self::assertSame('12:30', $fiche->getHeureFin()->format('H:i'));
+        self::assertTrue($fiche->isTouteAnnee());
+        self::assertNull($fiche->getMoisDebut());
+        self::assertNull($fiche->getMoisFin());
+        // horaires modifies : a verifier de nouveau
+        self::assertFalse($fiche->isHoraireOk());
+        self::assertSame("Ce marché a lieu de Juillet à Août le mercredi de 19h à 23h", $fiche->getHoraireBrut());
+    }
+
+    public function testHorairesInvalidesRefuses(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFicheAvecHoraire();
+        $csrf = $this->csrf();
+
+        foreach ([
+            ['jours' => ['lundy'], 'touteAnnee' => true],
+            ['heureDebut' => '25:00', 'touteAnnee' => true],
+            ['moisDebut' => 'juine', 'touteAnnee' => false],
+        ] as $corps) {
+            $this->post("/api/marche/$id/horaire", $csrf, $corps);
+            self::assertResponseStatusCodeSame(422, json_encode($corps));
+        }
+
+        // marche ponctuel : ni toute l'annee ni mois, accepte
+        $this->post("/api/marche/$id/horaire", $csrf, ['jours' => ['samedi'], 'touteAnnee' => false]);
+        self::assertResponseIsSuccessful();
+    }
+
+    private function creerFicheAvecHoraire(): int
+    {
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $marche = $this->em->find(Marche::class, $id);
+        $marche->changeHoraire(['mercredi'], new \DateTimeImmutable('1970-01-01 19:00'), new \DateTimeImmutable('1970-01-01 23:00'), false, 'juillet', 'août');
+        new \ReflectionProperty(Marche::class, 'horaireBrut')->setValue($marche, "Ce marché a lieu de Juillet à Août le mercredi de 19h à 23h");
+        $this->em->flush();
+
+        return $id;
+    }
+
     public function testAgentChangeLaPosition(): void
     {
         $agent = $this->creerAgent('agent@test.local');
