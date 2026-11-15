@@ -10,6 +10,22 @@
         {% block javascripts %}{% endblock %}
     </head>
     <body>
-        <main>{% block body %}{% endblock %}</main>
+        {% if app.user %}
+            <nav class="nav">
+                <a href="{{ path('app_dep_choice') }}" class="nav-titre">Validation des marchés</a>
+                <a href="{{ path('app_dep_choice') }}">Mes départements</a>
+                {% if is_granted('ROLE_ADMIN') %}<a href="{{ path('admin_home') }}">Administration</a>{% endif %}
+                <span class="nav-fin">
+                    <span class="muted">{{ app.user.libelle }}</span>
+                    <a href="{{ path('app_logout') }}">Déconnexion</a>
+                </span>
+            </nav>
+        {% endif %}
+        <main>
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}<p class="flash {{ type }}" role="status">{{ message }}</p>{% endfor %}
+            {% endfor %}
+            {% block body %}{% endblock %}
+        </main>
     </body>
 </html>

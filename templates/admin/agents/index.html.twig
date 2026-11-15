@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+{% block title %}Agents · Administration{% endblock %}
+{% block body %}
+{% include 'admin/_onglets.html.twig' with {actif: 'agents'} only %}
+
+<div class="actions"><a href="{{ path('admin_agent_nouveau') }}" class="btn-link">Créer un agent</a></div>
+
+<section class="card">
+    <table class="table-admin">
+        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Départements</th><th></th></tr></thead>
+        <tbody>
+        {% for a in agents %}
+            <tr>
+                <td>{{ a.user.name ?: '—' }}</td>
+                <td>{{ a.user.email }}</td>
+                <td>{{ a.user.admin ? 'Administrateur' : 'Agent' }}</td>
+                <td>{{ a.departements is empty ? '—' : a.departements|join(', ') }}</td>
+                <td><a href="{{ path('admin_agent_modifier', {id: a.user.id}) }}">Modifier</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

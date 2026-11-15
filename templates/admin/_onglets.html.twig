@@ -1,0 +1,6 @@
+{# Onglets de l'administration ; actif : 'departements' ou 'agents' #}
+<h1>Administration</h1>
+<nav class="onglets">
+    <a href="{{ path('admin_departements') }}" {% if actif == 'departements' %}aria-current="page"{% endif %}>Départements</a>
+    <a href="{{ path('admin_agents') }}" {% if actif == 'agents' %}aria-current="page"{% endif %}>Agents</a>
+</nav>

@@ -78,15 +78,15 @@ psql -v ON_ERROR_STOP=1 -f sql/marche.sql
 Ce script copie les lignes non supprimées de `marche_geocode_raw` dans `ogmarche.marche`.
 Il peut être relancé sans danger : il ne fait rien si `marche` contient déjà des fiches.
 
-### 6. Créer un agent et lui attribuer des communes
+### 6. Créer le premier administrateur
 
 ```bash
-php bin/console app:user:create agent@md.fr 'agent' --name="Agent"
-php bin/console app:attribution:assign agent@md.fr 01
+php bin/console app:user:create admin@exemple.fr 'un-mot-de-passe' --name="Admin" --admin
 ```
 
-La seconde commande attribue à l'agent toutes les communes du département `01` qui n'ont pas encore d'agent.
-Répétez-la pour chaque département. Ajoutez `--admin` à la première pour créer un administrateur.
+L'administrateur crée ensuite les agents et leur distribue les départements depuis l'écran **Administration**
+(`/admin`). En ligne de commande, `php bin/console app:attribution:assign <email> <département>` fait la même
+attribution qu'à l'écran.
 
 ### 7. Lancer l'application
 
@@ -103,8 +103,19 @@ si besoin, corrige la **position**. Les fiches qui désignent le même marché s
 (recherche par code postal, par commune ou par dénomination) ; le groupe s'affiche et se traite d'un seul bloc. « Traiter » exige que
 le nom et l'adresse de chaque fiche soient validés.
 
-Un agent ne voit et ne modifie que les communes qui lui sont attribuées. Il n'y a pas de bouton de déconnexion à
-l'écran : l'adresse est `/logout`.
+Un agent ne voit et ne modifie que les communes qui lui sont attribuées.
+
+## Administration
+
+Un administrateur est un agent qui a en plus l'écran **Administration** (`/admin`) :
+
+- **Départements** : cocher des départements et des agents, voir l'aperçu, puis lancer la **répartition
+  automatique**, qui équilibre le nombre de lignes (fiches) de chaque agent. Un département appartient à un seul
+  agent : le donner à un autre agent le retire au précédent. La page **Agents** montre les départements de chacun.
+- **Agents** : créer un compte (email, nom, mot de passe d'au moins 8 caractères), le modifier, ou le passer
+  administrateur. Un administrateur ne peut pas se retirer lui-même ses droits.
+
+Un administrateur peut s'attribuer des départements pour valider des fiches lui-même.
 
 ## Tests
 
@@ -125,10 +136,13 @@ Les tests s'exécutent sur la base configurée dans `.env.local`, dans des trans
 | `src/Entity`, `src/Repository` | modèle (`Marche`, `User`, `CommuneAttribution`, `Codens`) |
 | `src/Service` | logique de validation, périmètre par commune, génération des groupes de doublons |
 | `src/Controller` | pages (`ValidationController`), API JSON (`AdresseApiController`), connexion |
+| `src/Controller/Admin`, `src/Form` | administration : agents et distribution des départements |
 | `templates/`, `public/js/validation.js`, `public/css/app.css` | interface |
 | `tests/` | tests fonctionnels |
 
-Les tables des utilisateurs sont dans le schéma `public` ; tout ce qui concerne les marchés est dans `ogmarche`.
+Les tables indépendantes des marchés (les comptes, `public.user`) sont dans le schéma `public` ; tout ce qui
+concerne les marchés, y compris l'attribution des communes aux agents, est dans `ogmarche`. Un autre outil de
+validation (par exemple les fermes) aura son propre schéma et partagera les mêmes comptes.
 
 ## Dépannage
 

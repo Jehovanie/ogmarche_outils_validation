@@ -23,4 +23,27 @@ class CommuneAttributionRepository extends ServiceEntityRepository
     {
         return null !== $this->findOneBy(['userId' => $userId, 'codeDep' => $codeDep]);
     }
+
+    /** @return list<string> */
+    public function departementsDe(int $userId): array
+    {
+        return $this->createQueryBuilder('a')
+            ->select('DISTINCT a.codeDep')
+            ->where('a.userId = :user')
+            ->setParameter('user', $userId)
+            ->orderBy('a.codeDep')
+            ->getQuery()
+            ->getSingleColumnResult();
+    }
+
+    /** @return int le nombre de communes retirees */
+    public function supprimerDepartement(string $codeDep): int
+    {
+        return $this->createQueryBuilder('a')
+            ->delete()
+            ->where('a.codeDep = :dep')
+            ->setParameter('dep', $codeDep)
+            ->getQuery()
+            ->execute();
+    }
 }

@@ -55,6 +55,43 @@ class MarcheRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tous les departements qui ont des fiches rattachees a une commune, avec le travail restant.
+     *
+     * @return list<array{codeDep: string, communes: int, total: int, aTraiter: int}>
+     */
+    public function statsDepartements(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('m.codeDep AS codeDep, COUNT(DISTINCT m.codeInsee) AS communes, COUNT(m.id) AS total')
+            ->addSelect('SUM(CASE WHEN m.traite = false THEN 1 ELSE 0 END) AS aTraiter')
+            ->where('m.codeInsee IS NOT NULL')
+            ->groupBy('m.codeDep')
+            ->orderBy('m.codeDep', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $r): array => [
+            'codeDep' => $r['codeDep'],
+            'communes' => (int) $r['communes'],
+            'total' => (int) $r['total'],
+            'aTraiter' => (int) $r['aTraiter'],
+        ], $rows);
+    }
+
+    /** @return list<string> codes INSEE des communes du departement qui ont des fiches */
+    public function communesDuDepartement(string $codeDep): array
+    {
+        return $this->createQueryBuilder('m')
+            ->select('DISTINCT m.codeInsee')
+            ->where('m.codeDep = :dep')
+            ->andWhere('m.codeInsee IS NOT NULL')
+            ->setParameter('dep', $codeDep)
+            ->orderBy('m.codeInsee')
+            ->getQuery()
+            ->getSingleColumnResult();
+    }
+
+    /**
      * Prochaine fiche a valider dans une commune : ni traitee ni mise de cote,
      * la plus ancienne d'abord (meme regle que /pResto/specialDep de l'outil resto).
      */

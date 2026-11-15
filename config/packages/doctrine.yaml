@@ -11,7 +11,8 @@ doctrine:
         server_version: '16'
         # Doctrine ne gere que les tables de l'outil : 'user' (schema public) et le schema
         # ogmarche. marche_geocode_raw (import brut du CSV) reste hors Doctrine.
-        schema_filter: '~^((public\.)?user|doctrine_migration_versions|ogmarche\.(marche|commune_attribution|codens))$~'
+        # "user" est un mot reserve de PostgreSQL : son nom arrive entre guillemets.
+        schema_filter: '~^((public\.)?"?user"?|doctrine_migration_versions|ogmarche\.(marche|commune_attribution|codens))$~'
 
         profiling_collect_backtrace: '%kernel.debug%'
     orm:

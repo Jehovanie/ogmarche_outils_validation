@@ -14,8 +14,8 @@ Internal tool for agents to validate geocoded market records ("fiches de marché
 composer install
 symfony serve -d                                   # or: php -S localhost:8000 -t public
 php bin/console doctrine:migrations:migrate --no-interaction
-php bin/console app:user:create <email> <password> [--name=...] [--admin]
-php bin/console app:attribution:assign <email> <dep>   # assigns every unassigned commune of a département
+php bin/console app:user:create <email> <password> [--name=...] [--admin]   # first admin; agents are then created in /admin
+php bin/console app:attribution:assign <email> <dep>   # gives the whole département to the agent (same as /admin)
 
 php bin/phpunit                                    # all tests
 php bin/phpunit --filter testAgentCorrigeValideEtTraiteUneFiche   # single test
@@ -27,17 +27,19 @@ PHPUnit is configured with `failOnDeprecation`, `failOnNotice` and `failOnWarnin
 ## Database
 
 - The connection comes from **lowercase env vars** (`database_host`, `database_port`, `database_name`, `database_user`, `database_password`), not `DATABASE_URL`. Override them in `.env.local`.
-- Two schemas: `public.user` (agents) and `ogmarche.*` (everything about markets).
+- **Schema rule**: tables independent of markets go in `public` (accounts: `public.user`); anything tied to markets goes in `ogmarche`, including `commune_attribution`. A future validation tool for farms will get its own schema (e.g. `ogferme`) with its own attribution table and share `public.user`. Put new tables in the right schema.
 - Data pipeline, partly outside Doctrine:
   1. `sql/schema.sql` creates `ogmarche.marche_geocode_raw`, which is loaded from `data/data_geocoder_final.csv` (git-ignored) with `\copy`.
   2. Doctrine migrations create `user`, `ogmarche.marche`, `ogmarche.commune_attribution` and `ogmarche.codens`.
   3. `sql/marche.sql` copies raw rows into `ogmarche.marche` (it does nothing if `marche` already has rows).
-- `doctrine.dbal.schema_filter` in `config/packages/doctrine.yaml` restricts Doctrine to its own tables, so `marche_geocode_raw` stays out of migration diffs. If you add an entity, **extend that regex** or `make:migration` won't see the new table.
+- `doctrine.dbal.schema_filter` in `config/packages/doctrine.yaml` restricts Doctrine to its own tables, so `marche_geocode_raw` stays out of migration diffs. If you add an entity, **extend that regex** or `make:migration` won't see the new table. `user` is a PostgreSQL reserved word and reaches the filter as `"user"`, hence the optional quotes.
 - There is no separate test database. Tests run against the configured database, inside transactions rolled back by `dama/doctrine-test-bundle`. Test fixtures use département `99` / INSEE `99001`.
 
 ## Architecture
 
 **Agent scope is the core rule.** `CommuneAttribution` (`code_dep`, `code_insee`, `user_id`) defines which communes an agent may see and edit. `user_id` points across schemas, so there is no ORM relation. Every read and write goes through `AdresseValidationService`, which calls `assertDansPerimetre` / `assertCommuneDansPerimetre` before touching a `Marche`. Repository queries that list records join `CommuneAttribution` on `(codeDep, codeInsee)` and filter by `userId`. Any new action must keep this check.
+
+**Administration** (`/admin`, `ROLE_ADMIN`; `ROLE_ADMIN` inherits `ROLE_USER`, so an admin can also validate). `src/Controller/Admin` + `src/Form`. A département belongs to one agent: giving it to an agent deletes every attribution of the département and gives all its communes (those that have fiches) to that agent. The only UI for this is the automatic distribution on `/admin/departements`: `Repartition::planifier()` (pure, deterministic, so the preview equals what is applied) assigns whole départements largest-first to the least-loaded agent by fiche count, and `AttributionService::appliquerRepartition()` writes it in one transaction. `app:attribution:assign` gives a single département. Account creation and password hashing go through `AgentService`, also used by `app:user:create`.
 
 **Request flow.**
 - `ValidationController` renders the HTML pages: `/depChoice` → `/dep/{dep}` → `/validation/{dep}/{insee}`. The last page shows the next untreated, non-`rappel` record (lowest id first), or the one given by `?fiche=<id>`.

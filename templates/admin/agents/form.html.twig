@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ agent ? 'Modifier ' ~ agent.email : 'Nouvel agent' }} · Administration{% endblock %}
+{% block body %}
+{% include 'admin/_onglets.html.twig' with {actif: 'agents'} only %}
+
+<section class="card form-agent">
+    <h2>{{ agent ? 'Modifier ' ~ agent.libelle : 'Nouvel agent' }}</h2>
+    {{ form_start(form) }}
+        {{ form_widget(form) }}
+        <div class="actions">
+            <button type="submit">Enregistrer</button>
+            <a href="{{ path('admin_agents') }}" class="btn-link secondary">Annuler</a>
+        </div>
+    {{ form_end(form) }}
+</section>
+{% endblock %}

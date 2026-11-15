@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+{% block title %}Départements · Administration{% endblock %}
+{% block javascripts %}<script src="{{ asset('js/admin.js') }}" defer></script>{% endblock %}
+{% block body %}
+{% include 'admin/_onglets.html.twig' with {actif: 'departements'} only %}
+
+<section class="card">
+    <h2>Répartition automatique</h2>
+    <p class="muted">Cochez les départements et les agents : les départements sont répartis pour que chaque agent ait à peu près le même nombre de lignes (fiches). Un département reste entier et à un seul agent ; s'il était attribué à quelqu'un d'autre, il lui est retiré.</p>
+    {{ form_start(repartition) }}
+        <div class="repartition-choix">
+            <fieldset id="repartition-departements">
+                <legend>Départements <span class="muted">(nombre de lignes)</span></legend>
+                <label class="tout-selectionner"><input type="checkbox" data-tout-selectionner="#repartition-departements"> Tout sélectionner</label>
+                {{ form_errors(repartition.departements) }}
+                <div class="cases cases-departements">
+                    {% for case in repartition.departements %}<label>{{ form_widget(case) }} {{ case.vars.label }}</label>{% endfor %}
+                </div>
+            </fieldset>
+            <fieldset id="repartition-agents">
+                <legend>Agents</legend>
+                <label class="tout-selectionner"><input type="checkbox" data-tout-selectionner="#repartition-agents"> Tout sélectionner</label>
+                {{ form_errors(repartition.agents) }}
+                <div class="cases">
+                    {% for case in repartition.agents %}<label>{{ form_widget(case) }} {{ case.vars.label }}</label>{% endfor %}
+                </div>
+            </fieldset>
+        </div>
+
+        {% if plan %}
+            <div class="apercu">
+                <h3>Aperçu : rien n'est encore enregistré</h3>
+                <table class="table-admin">
+                    <thead><tr><th>Agent</th><th>Lignes</th><th>Départements</th></tr></thead>
+                    <tbody>
+                    {% for p in plan %}
+                        <tr><td>{{ p.agent.libelle }}</td><td>{{ p.lignes }}</td><td>{{ p.departements is empty ? '—' : p.departements|join(', ') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <div class="actions">
+            {{ form_widget(repartition.apercu) }}
+            {{ form_widget(repartition.appliquer, {attr: {onclick: "return confirm('Répartir les départements cochés entre les agents cochés ? Les attributions actuelles de ces départements seront remplacées.')"}}) }}
+            {# efface l'apercu et les cases cochees, sans rien enregistrer #}
+            {% if plan %}<a href="{{ path('admin_departements') }}" class="btn-link secondary">Réinitialiser</a>{% endif %}
+        </div>
+    {{ form_end(repartition) }}
+</section>
+{% endblock %}
