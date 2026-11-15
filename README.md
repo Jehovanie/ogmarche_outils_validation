@@ -81,8 +81,8 @@ Il peut être relancé sans danger : il ne fait rien si `marche` contient déjà
 ### 6. Créer un agent et lui attribuer des communes
 
 ```bash
-php bin/console app:user:create agent@exemple.fr 'motdepasse' --name="Prénom Nom"
-php bin/console app:attribution:assign agent@exemple.fr 01
+php bin/console app:user:create agent@md.fr 'agent' --name="Agent"
+php bin/console app:attribution:assign agent@md.fr 01
 ```
 
 La seconde commande attribue à l'agent toutes les communes du département `01` qui n'ont pas encore d'agent.
