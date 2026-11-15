@@ -6,6 +6,7 @@ use App\Dto\AdresseDto;
 use App\Dto\LierDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
+use App\Dto\ProduitsDto;
 use App\Entity\Marche;
 use App\Entity\User;
 use App\Service\AdresseValidationService;
@@ -64,6 +65,24 @@ final class AdresseApiController extends AbstractController
     {
         $this->checkCsrf($request);
         $this->validation->definirAdresseOk($id, $request->query->getBoolean('valeur', true), $this->agent());
+
+        return $this->json(['ok' => true]);
+    }
+
+    #[Route('/produits', name: 'api_marche_produits', methods: ['POST'])]
+    public function changerProduits(int $id, Request $request, #[MapRequestPayload] ProduitsDto $produits): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $avertissements = $this->validation->changerProduits($id, $produits, $this->agent());
+
+        return $this->json(['ok' => true, 'avertissements' => $avertissements]);
+    }
+
+    #[Route('/produits-ok', name: 'api_marche_produits_ok', methods: ['POST'])]
+    public function produitsOk(int $id, Request $request): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $this->validation->definirProduitsOk($id, $request->query->getBoolean('valeur', true), $this->agent());
 
         return $this->json(['ok' => true]);
     }

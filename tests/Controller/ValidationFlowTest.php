@@ -5,6 +5,7 @@ namespace App\Tests\Controller;
 use App\Entity\CommuneAttribution;
 use App\Entity\Marche;
 use App\Entity\User;
+use App\Enum\ActionType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -39,6 +40,7 @@ final class ValidationFlowTest extends WebTestCase
     {
         $agent = $this->creerAgent('agent@test.local');
         $id = $this->creerFiche();
+        $this->em->find(Marche::class, $id)->changeProduits('Fruits et légumes');
         $this->em->persist(new CommuneAttribution(self::DEP, self::INSEE, (int) $agent->getId()));
         $this->em->flush();
         $this->client->loginUser($agent);
@@ -78,6 +80,25 @@ final class ValidationFlowTest extends WebTestCase
 
         $this->post("/api/marche/$id/adresse-ok", $csrf);
         self::assertResponseIsSuccessful();
+
+        // nom et adresse valides mais produits non valides : toujours refuse
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        // produits qui contiennent encore un horaire : acceptes avec avertissement
+        $this->post("/api/marche/$id/produits", $csrf, ['produits' => 'Fruits et légumes, le samedi de 8h à 12h']);
+        self::assertResponseIsSuccessful();
+        $reponse = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertCount(1, $reponse['avertissements']);
+        self::assertStringContainsString('samedi, 8h, 12h', $reponse['avertissements'][0]);
+
+        // horaire retire : plus d'avertissement
+        $this->post("/api/marche/$id/produits", $csrf, ['produits' => 'Fruits et légumes']);
+        $reponse = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertSame([], $reponse['avertissements']);
+
+        $this->post("/api/marche/$id/produits-ok", $csrf);
+        self::assertResponseIsSuccessful();
         $this->post("/api/marche/$id/traite", $csrf);
         self::assertResponseIsSuccessful();
 
@@ -88,6 +109,8 @@ final class ValidationFlowTest extends WebTestCase
         self::assertTrue($fiche->isNomOk());
         self::assertSame('Marché de Testville', $fiche->getDenomination());
         self::assertSame('DU MARCHE', $fiche->getNomVoie());
+        self::assertTrue($fiche->isProduitsOk());
+        self::assertSame('Fruits et légumes', $fiche->getProduits());
         self::assertSame($agent->getId(), $fiche->getValidatedBy());
         self::assertNotNull($fiche->getDateDeValidation());
 
@@ -126,6 +149,157 @@ final class ValidationFlowTest extends WebTestCase
         $this->em->clear();
 
         self::assertFalse($this->em->find(Marche::class, $id)->isNomOk());
+    }
+
+    public function testSpecificationAValiderNExigeQueLesProduits(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $this->em->find(Marche::class, $id)->changeProduits('Fruits et légumes');
+        $this->em->flush();
+        $csrf = $this->csrf();
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertSelectorTextContains('.badge', 'Spécification à valider');
+        self::assertSame(['(déjà validé)', '(déjà validée)'], $crawler->filter('.facultatif')->each(static fn ($n) => $n->text()));
+
+        // produits non valides : refuse
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        // produits valides, sans nom ni adresse : accepte
+        $this->post("/api/marche/$id/produits-ok", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertTrue($this->em->find(Marche::class, $id)->isTraite());
+    }
+
+    public function testExistenceAValiderExigeNomAdresseEtProduits(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $csrf = $this->csrf();
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertSelectorTextContains('.badge', 'Existence à valider');
+        self::assertCount(0, $crawler->filter('.facultatif'));
+
+        // produits seuls : refuse
+        $this->post("/api/marche/$id/produits-ok", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('nom', json_decode($this->client->getResponse()->getContent(), true)['message']);
+
+        $this->post("/api/marche/$id/nom-ok", $csrf);
+        $this->post("/api/marche/$id/adresse-ok", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testUnGroupeMixteAppliqueLaRegleDeChaqueFiche(): void
+    {
+        $this->agentAvecPerimetre();
+        $spec = $this->creerFiche('Spec', actionType: ActionType::Specification);
+        $exist = $this->creerFiche('Exist', actionType: ActionType::Existance);
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$spec/lier", $csrf, ['ids' => [$exist]]);
+
+        foreach ([$spec, $exist] as $id) {
+            $this->post("/api/marche/$id/produits-ok", $csrf);
+        }
+        // la fiche EXISTANCE n'a ni nom ni adresse valides : tout le groupe est refuse
+        $this->post("/api/marche/$spec/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->post("/api/marche/$exist/nom-ok", $csrf);
+        $this->post("/api/marche/$exist/adresse-ok", $csrf);
+        $this->post("/api/marche/$spec/traite", $csrf);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testProduitsVidesNeBloquentPasLeTraitement(): void
+    {
+        $this->agentAvecPerimetre();
+        $vide = $this->creerFiche('Vide', actionType: ActionType::Specification);
+        $rempli = $this->creerFiche('Rempli', actionType: ActionType::Specification);
+        $this->em->find(Marche::class, $rempli)->changeProduits('Fromages');
+        $this->em->flush();
+        $csrf = $this->csrf();
+
+        // fiche vide : rien a verifier, bouton de validation masque
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE.'?fiche='.$vide);
+        self::assertNull($crawler->filter('.produits-vides')->attr('hidden'));
+        self::assertNotNull($crawler->filter('.btn-produits-ok')->attr('hidden'));
+
+        // traitee sans aucune validation
+        $this->post("/api/marche/$vide/traite", $csrf);
+        self::assertResponseIsSuccessful();
+
+        // fiche avec des produits : la validation reste exigee
+        $this->post("/api/marche/$rempli/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testAjouterDesProduitsAUneFicheVideExigeLeurValidation(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$id/produits", $csrf, ['produits' => 'Miel']);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->post("/api/marche/$id/produits-ok", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testModifierLesProduitsInvalideLeDrapeauProduitsOk(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche();
+        $csrf = $this->csrf();
+
+        $this->post("/api/marche/$id/produits-ok", $csrf);
+        $this->post("/api/marche/$id/produits", $csrf, ['produits' => 'Fromages']);
+        $this->em->clear();
+
+        self::assertFalse($this->em->find(Marche::class, $id)->isProduitsOk());
+    }
+
+    public function testLaFicheAfficheLesProduitsSansLaSpecificite(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche();
+        $marche = $this->em->find(Marche::class, $id);
+        $marche->changeProduits('Volailles et œufs');
+        new \ReflectionProperty(Marche::class, 'specificite')->setValue($marche, 'Le samedi matin');
+        $this->em->flush();
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+
+        self::assertSame('Volailles et œufs', $crawler->filter("#produits-$id")->text());
+        self::assertCount(0, $crawler->filter("#specificite-$id"));
+        self::assertCount(1, $crawler->filter('.btn-produits-ok'));
+
+        // enregistrer les produits ne touche pas a la specificite, qui peut garder ses horaires
+        $this->post("/api/marche/$id/produits", $this->csrf(), ['produits' => 'Volailles']);
+        self::assertSame([], json_decode($this->client->getResponse()->getContent(), true)['avertissements']);
+        $this->em->clear();
+        self::assertSame('Le samedi matin', $this->em->find(Marche::class, $id)->getSpecificite());
+    }
+
+    public function testUneSpecificiteSeuleNExigePasDeValidation(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+        new \ReflectionProperty(Marche::class, 'specificite')->setValue($this->em->find(Marche::class, $id), 'Marché bio');
+        $this->em->flush();
+
+        $this->post("/api/marche/$id/traite", $this->csrf());
+        self::assertResponseIsSuccessful();
     }
 
     public function testAgentChangeLaPosition(): void
@@ -257,6 +431,7 @@ final class ValidationFlowTest extends WebTestCase
         foreach ([$a] as $id) {
             $this->post("/api/marche/$id/nom-ok", $csrf);
             $this->post("/api/marche/$id/adresse-ok", $csrf);
+            $this->post("/api/marche/$id/produits-ok", $csrf);
         }
         // B n'est pas validee : tout le groupe reste a traiter
         $this->post("/api/marche/$a/traite", $csrf);
@@ -266,6 +441,7 @@ final class ValidationFlowTest extends WebTestCase
 
         $this->post("/api/marche/$b/nom-ok", $csrf);
         $this->post("/api/marche/$b/adresse-ok", $csrf);
+        $this->post("/api/marche/$b/produits-ok", $csrf);
         $this->post("/api/marche/$a/traite", $csrf);
         self::assertResponseIsSuccessful();
         $this->em->clear();
@@ -349,11 +525,13 @@ final class ValidationFlowTest extends WebTestCase
         self::assertStringContainsString('Testville', $crawler->filter('#btn-search-commune')->text());
         self::assertStringContainsString('(A)', $crawler->filter('#btn-search-denomination')->text());
         self::assertCount(1, $crawler->filter('#doublons-table'));
-        // outils de verification de la fiche ; BAN desactive sans identifiant d'adresse
-        foreach (['.btn-google', '.btn-maps', '.btn-images', '.btn-mairie', '.btn-streetview', '.btn-osm'] as $bouton) {
+        // outils de verification de la fiche : recherches Google uniquement
+        foreach (['.btn-google', '.btn-maps', '.btn-images'] as $bouton) {
             self::assertCount(1, $crawler->filter($bouton), $bouton);
         }
-        self::assertNotNull($crawler->filter('.btn-ban')->attr('disabled'));
+        foreach (['.btn-mairie', '.btn-streetview', '.btn-osm', '.btn-ban'] as $bouton) {
+            self::assertCount(0, $crawler->filter($bouton), $bouton);
+        }
     }
 
     public function testAgentNeLiePasLesFichesDUneCommuneNonAttribuee(): void
@@ -411,11 +589,11 @@ final class ValidationFlowTest extends WebTestCase
         return $user;
     }
 
-    private function creerFiche(string $denomination = 'Marché de test', string $dep = self::DEP, string $insee = self::INSEE, ?string $codePostal = null, string $commune = 'Testville'): int
+    private function creerFiche(string $denomination = 'Marché de test', string $dep = self::DEP, string $insee = self::INSEE, ?string $codePostal = null, string $commune = 'Testville', ActionType $actionType = ActionType::Existance): int
     {
         $marche = new Marche();
         $rc = new \ReflectionClass(Marche::class);
-        foreach (['codeDep' => $dep, 'codeInsee' => $insee, 'commune' => $commune, 'codePostal' => $codePostal, 'denomination' => $denomination] as $prop => $valeur) {
+        foreach (['codeDep' => $dep, 'codeInsee' => $insee, 'commune' => $commune, 'codePostal' => $codePostal, 'denomination' => $denomination, 'actionType' => $actionType] as $prop => $valeur) {
             $rc->getProperty($prop)->setValue($marche, $valeur);
         }
         $this->em->persist($marche);

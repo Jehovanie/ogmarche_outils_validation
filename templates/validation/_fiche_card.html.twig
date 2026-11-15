@@ -1,15 +1,17 @@
-{# Une fiche du groupe : nom, adresse, position. Les actions sont branchees par validation.js. #}
+{# Une fiche du groupe : nom, adresse, position, produits. Les actions sont branchees par validation.js. #}
 <article class="card fiche-card" data-id="{{ m.id }}"
          data-api-adresse="{{ path('api_marche_adresse', {id: m.id}) }}"
          data-api-nom="{{ path('api_marche_nom', {id: m.id}) }}"
          data-api-position="{{ path('api_marche_position', {id: m.id}) }}"
-         data-id-ban="{{ m.idBan }}"
+         data-api-produits="{{ path('api_marche_produits', {id: m.id}) }}"
+         data-api-produits-ok="{{ path('api_marche_produits_ok', {id: m.id}) }}"
          data-api-delier="{{ path('api_marche_delier', {id: m.id}) }}">
     <div class="fiche-card-head">
         <div class="fiche-card-titre">
             <span class="muted">
                 Fiche {{ m.id }}{% if groupe|length > 1 %} · groupe {{ m.codens }}{% endif %}
             </span>
+            <span class="badge badge-{{ m.actionType.exigeNomEtAdresse ? 'existance' : 'specification' }}">{{ m.actionType.libelle }}</span>
             {% if groupe|length > 1 %}<button type="button" class="secondary small btn-delier">Délier ce doublon</button>{% endif %}
         </div>
         <div class="outils-verif">
@@ -20,18 +22,11 @@
             <div class="outils-col" aria-label="Images">
                 <button type="button" class="secondary small btn-images" title="Photos du marché : enseigne, étals, panneau">Google Images</button>
             </div>
-            <div class="outils-col" aria-label="Commune et rue">
-                <button type="button" class="secondary small btn-mairie" title="Chercher le marché sur le site de la mairie">Mairie</button>
-                <button type="button" class="secondary small btn-streetview" title="Voir la rue à la position indiquée">Street View</button>
-            </div>
-            <div class="outils-col" aria-label="Carte et adresse officielle">
-                <button type="button" class="secondary small btn-osm" title="Voir la position sur OpenStreetMap">OpenStreetMap</button>
-                <button type="button" class="secondary small btn-ban" title="Fiche officielle de l'adresse (Base Adresse Nationale)" {% if not m.idBan %}disabled{% endif %}>BAN</button>
-            </div>
         </div>
     </div>
 
-    <h2>Nom de l'établissement</h2>
+    {% set facultatif = not m.actionType.exigeNomEtAdresse %}
+    <h2>Nom de l'établissement{% if facultatif %} <span class="muted facultatif">(déjà validé)</span>{% endif %}</h2>
     <form class="nom-form" autocomplete="off">
         <label for="denomination-{{ m.id }}">Nom actuel</label>
         <input id="denomination-{{ m.id }}" name="denomination" value="{{ m.denomination }}" maxlength="100" required>
@@ -41,7 +36,7 @@
         <button type="button" class="btn-nom-ok" data-ok="{{ m.nomOk ? '1' : '0' }}">{{ m.nomOk ? 'Nom validé ✓' : 'Valider le nom' }}</button>
     </div>
 
-    <h2>Adresse</h2>
+    <h2>Adresse{% if facultatif %} <span class="muted facultatif">(déjà validée)</span>{% endif %}</h2>
     <form class="adresse-form grid-adresse" autocomplete="off">
         <div><label for="numVoie-{{ m.id }}">N° de voie</label><input id="numVoie-{{ m.id }}" name="numVoie" value="{{ m.numVoie }}" maxlength="10"></div>
         <div><label for="typeVoie-{{ m.id }}">Type de voie</label><input id="typeVoie-{{ m.id }}" name="typeVoie" value="{{ m.typeVoie }}" maxlength="20"></div>
@@ -64,5 +59,16 @@
         <button type="button" class="btn-position">Changer la position</button>
     </div>
     <p class="muted">Format du presse-papier : <code>latitude, longitude</code> (ex. 46.207013, 5.229934).</p>
+
+    <h2>Produits <span class="muted produits-vides"{% if m.exigeValidationProduits %} hidden{% endif %}>(vides, rien à vérifier)</span></h2>
+    <p class="muted">Retirez toute mention de jour, d'horaire ou de période (lundi, 8h-12h, le matin, d'avril à octobre…) : elles ont leurs propres champs.</p>
+    <form class="produits-form" autocomplete="off">
+        <div><label for="produits-{{ m.id }}">Produits</label><textarea id="produits-{{ m.id }}" name="produits" rows="5" maxlength="5000">{{ m.produits }}</textarea></div>
+    </form>
+    <div class="mentions-temps flash warn" role="status" hidden></div>
+    <div class="actions">
+        <button type="button" class="secondary btn-produits-enregistrer">Enregistrer les produits</button>
+        <button type="button" class="btn-produits-ok" data-ok="{{ m.produitsOk ? '1' : '0' }}"{% if not m.exigeValidationProduits %} hidden{% endif %}>{{ m.produitsOk ? 'Produits validés ✓' : 'Produits corrects' }}</button>
+    </div>
     <div class="message" role="status"></div>
 </article>

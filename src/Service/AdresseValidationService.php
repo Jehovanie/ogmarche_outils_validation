@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Dto\AdresseDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
+use App\Dto\ProduitsDto;
 use App\Entity\Marche;
 use App\Entity\User;
 use App\Repository\CommuneAttributionRepository;
@@ -69,6 +70,32 @@ final class AdresseValidationService
         $this->em->flush();
     }
 
+    /**
+     * Enregistre les produits corriges. Retourne les avertissements (non bloquants) :
+     * les mentions de jour ou d'horaire qui restent dans le texte.
+     *
+     * @return list<string>
+     */
+    public function changerProduits(int $id, ProduitsDto $dto, User $user): array
+    {
+        $marche = $this->fiche($id, $user);
+        $marche->changeProduits($this->vide($dto->produits));
+        $this->em->flush();
+
+        $avertissements = [];
+        if ([] !== $mentions = MentionTemporelle::detecter($marche->getProduits())) {
+            $avertissements[] = \sprintf('Mentions de temps encore présentes dans les produits : %s.', implode(', ', $mentions));
+        }
+
+        return $avertissements;
+    }
+
+    public function definirProduitsOk(int $id, bool $ok, User $user): void
+    {
+        $this->fiche($id, $user)->setProduitsOk($ok);
+        $this->em->flush();
+    }
+
     public function definirNomOk(int $id, bool $ok, User $user): void
     {
         $this->fiche($id, $user)->setNomOk($ok);
@@ -82,20 +109,28 @@ final class AdresseValidationService
     }
 
     /**
-     * Traite la fiche, et tout son groupe de doublons le cas echeant.
+     * Traite la fiche, et tout son groupe de doublons le cas echeant. Chaque fiche doit avoir
+     * ses produits valides, sauf s'ils sont vides ; une fiche
+     * EXISTANCE_AVALIDER doit aussi avoir son nom et son adresse.
      *
-     * @throws \DomainException si le nom ou l'adresse d'une fiche du groupe n'est pas valide
+     * @throws \DomainException si une validation exigee manque sur une fiche du groupe
      */
     public function marquerTraite(int $id, User $user): void
     {
         $groupe = $this->groupe($this->fiche($id, $user));
         foreach ($groupe as $marche) {
             $this->assertDansPerimetre($marche, $user);
-            if (!$marche->isNomOk()) {
-                throw new \DomainException(\sprintf('Le nom doit être validé avant de traiter la fiche %d.', $marche->getId()));
+            // nom et adresse ne sont exiges que pour une existence a valider
+            if ($marche->getActionType()->exigeNomEtAdresse()) {
+                if (!$marche->isNomOk()) {
+                    throw new \DomainException(\sprintf('Le nom doit être validé avant de traiter la fiche %d.', $marche->getId()));
+                }
+                if (!$marche->isAdresseOk()) {
+                    throw new \DomainException(\sprintf("L'adresse doit être validée avant de traiter la fiche %d.", $marche->getId()));
+                }
             }
-            if (!$marche->isAdresseOk()) {
-                throw new \DomainException(\sprintf("L'adresse doit être validée avant de traiter la fiche %d.", $marche->getId()));
+            if ($marche->exigeValidationProduits() && !$marche->isProduitsOk()) {
+                throw new \DomainException(\sprintf('Les produits doivent être validés avant de traiter la fiche %d.', $marche->getId()));
             }
         }
 

@@ -15,21 +15,42 @@
         const texte = String(valeur ?? '').trim().replace(',', '.');
         return texte === '' || Number.isNaN(Number(texte)) ? null : Number(texte);
     };
+    // mentions de jour / horaire / periode a retirer des produits (meme liste que App\Service\MentionTemporelle)
+    const MOTIFS_TEMPS = [
+        '(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)s?',
+        '\\d{1,2}\\s?(?:h|heures?)(?:\\s?\\d{2})?', '\\d{1,2}:\\d{2}',
+        'matin(?:s|ée|ées)?', 'apr[eè]s[- ]midi', 'soir(?:s|ée|ées)?', 'midi', 'nocturnes?',
+        'janvier', 'f[ée]vrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'ao[uû]t', 'septembre', 'octobre', 'novembre', 'd[ée]cembre',
+        'hebdomadaires?', 'mensuel(?:le)?s?', 'quotidien(?:ne)?s?', 'du mois', 'chaque mois', 'semaines?', "toute l'ann[ée]e",
+        '\\d{1,2}/\\d{1,2}',
+    ];
+    const regexTemps = new RegExp(`(?<![\\p{L}\\d])(?:${MOTIFS_TEMPS.join('|')})(?![\\p{L}\\d])`, 'giu');
+    const mentionsTemps = (texte) => {
+        const vues = new Map();
+        for (const [m] of String(texte ?? '').matchAll(regexTemps)) {
+            if (!vues.has(m.toLowerCase())) vues.set(m.toLowerCase(), m);
+        }
+        return [...vues.values()];
+    };
     // reste sur la fiche courante (groupe compris) apres une liaison / dissociation
     const recharger = () => { location.href = `${next}?fiche=${ficheId}`; };
 
     // ---------------------------------------------------------------- une fiche du groupe
     const initCard = (card) => {
-        const { id, idBan, apiAdresse, apiNom, apiPosition, apiDelier } = card.dataset;
+        const { id, apiAdresse, apiNom, apiPosition, apiProduits, apiProduitsOk, apiDelier } = card.dataset;
         const $ = (sel) => card.querySelector(sel);
         const nomForm = $('.nom-form');
         const adresseForm = $('.adresse-form');
+        const produitsForm = $('.produits-form');
         const positionForm = $('.position-form');
         const btnNomOk = $('.btn-nom-ok');
         const btnAdresseOk = $('.btn-adresse-ok');
+        const btnProduitsOk = $('.btn-produits-ok');
+        const alerteTemps = $('.mentions-temps');
         const message = $('.message');
         let nomDirty = false;
         let adresseDirty = false;
+        let produitsDirty = false;
 
         const show = (text, kind = 'ok') => { message.className = `message flash ${kind}`; message.textContent = text; };
         const setOk = (btn, ok, on, off) => { btn.dataset.ok = ok ? '1' : '0'; btn.textContent = ok ? on : off; };
@@ -37,6 +58,27 @@
         // un champ modifie invalide l'etat "valide" tant qu'il n'est pas enregistre
         nomForm.addEventListener('input', () => { nomDirty = true; setOk(btnNomOk, false, '', 'Valider le nom'); });
         adresseForm.addEventListener('input', () => { adresseDirty = true; setOk(btnAdresseOk, false, '', 'Adresse correcte'); });
+
+        // signale en direct les mentions de temps qui restent dans les produits
+        const verifierTemps = () => {
+            const mentions = mentionsTemps(produitsForm.elements.produits.value);
+            alerteTemps.hidden = mentions.length === 0;
+            alerteTemps.textContent = mentions.length ? `Mentions de temps à retirer : ${mentions.join(', ')}` : '';
+        };
+        // produits vides : rien a valider, tant que l'agent n'en ajoute pas
+        const produitsVides = $('.produits-vides');
+        const basculerVides = () => {
+            const vides = produitsForm.elements.produits.value.trim() === '';
+            produitsVides.hidden = !vides;
+            btnProduitsOk.hidden = vides;
+        };
+        produitsForm.addEventListener('input', () => {
+            produitsDirty = true;
+            setOk(btnProduitsOk, false, '', 'Produits corrects');
+            verifierTemps();
+            basculerVides();
+        });
+        verifierTemps();
 
         const enregistrerNom = async () => {
             const { res, data } = await post(apiNom, Object.fromEntries(new FormData(nomForm).entries()));
@@ -54,8 +96,18 @@
             return true;
         };
 
+        const enregistrerProduits = async () => {
+            const { res, data } = await post(apiProduits, Object.fromEntries(new FormData(produitsForm).entries()));
+            if (!res.ok) { show(res.status === 422 ? violations(data, 'Produits invalides.') : 'Enregistrement impossible.', 'warn'); return false; }
+            produitsDirty = false;
+            const avert = (data.avertissements || []).join(' ');
+            show(avert ? `Produits enregistrés. ${avert}` : 'Produits enregistrés.', avert ? 'warn' : 'ok');
+            return true;
+        };
+
         $('.btn-nom-enregistrer').addEventListener('click', enregistrerNom);
         $('.btn-adresse-enregistrer').addEventListener('click', enregistrerAdresse);
+        $('.btn-produits-enregistrer').addEventListener('click', enregistrerProduits);
 
         btnNomOk.addEventListener('click', async () => {
             if (nomDirty && !(await enregistrerNom())) return;
@@ -70,6 +122,13 @@
             const { res } = await post(`/api/marche/${id}/adresse-ok?valeur=${valeur ? 1 : 0}`);
             if (!res.ok) return show('Action impossible.', 'warn');
             setOk(btnAdresseOk, valeur, 'Adresse validée ✓', 'Adresse correcte');
+        });
+        btnProduitsOk.addEventListener('click', async () => {
+            if (produitsDirty && !(await enregistrerProduits())) return;
+            const valeur = btnProduitsOk.dataset.ok !== '1';
+            const { res } = await post(`${apiProduitsOk}?valeur=${valeur ? 1 : 0}`);
+            if (!res.ok) return show('Action impossible.', 'warn');
+            setOk(btnProduitsOk, valeur, 'Produits validés ✓', 'Produits corrects');
         });
 
         // position
@@ -113,33 +172,6 @@
         $('.btn-maps').addEventListener('click', () => ouvrir('https://www.google.com/maps?q='));
         // photos : enseigne, etals, panneau du marche
         $('.btn-images').addEventListener('click', () => ouvrir('https://www.google.com/search?tbm=isch&q='));
-        // source officielle probable : le site de la commune
-        $('.btn-mairie').addEventListener('click', () => ouvrir(
-            'https://www.google.com/search?q=',
-            `mairie ${(adresseForm.elements.commune.value || '').trim()} marché`.trim(),
-        ));
-        // verification de la position, a partir des coordonnees actuellement saisies
-        const coordonnees = () => {
-            const lat = nombre(positionForm.elements.latitude.value);
-            const lng = nombre(positionForm.elements.longitude.value);
-            if (lat === null || lng === null) {
-                show('Renseignez une latitude et une longitude valides pour ouvrir cette carte.', 'warn');
-                return null;
-            }
-            return { lat, lng };
-        };
-        $('.btn-streetview').addEventListener('click', () => {
-            const c = coordonnees();
-            if (c) aller(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.lat},${c.lng}`);
-        });
-        $('.btn-osm').addEventListener('click', () => {
-            const c = coordonnees();
-            if (c) aller(`https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=18/${c.lat}/${c.lng}`);
-        });
-        // Base Adresse Nationale : controle du geocodage d'origine
-        $('.btn-ban').addEventListener('click', () => {
-            if (idBan) aller(`https://adresse.data.gouv.fr/base-adresse-nationale/${encodeURIComponent(idBan)}`);
-        });
 
         // dissocier ce doublon
         const btnDelier = $('.btn-delier');
@@ -153,7 +185,11 @@
         }
 
         // enregistre ce qui est en attente ; false si une sauvegarde a echoue
-        return { flush: async () => (!nomDirty || await enregistrerNom()) && (!adresseDirty || await enregistrerAdresse()) };
+        return {
+            flush: async () => (!nomDirty || await enregistrerNom())
+                && (!adresseDirty || await enregistrerAdresse())
+                && (!produitsDirty || await enregistrerProduits()),
+        };
     };
 
     const cards = [...document.querySelectorAll('.fiche-card')].map(initCard);

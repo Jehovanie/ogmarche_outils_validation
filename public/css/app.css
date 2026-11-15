@@ -10,7 +10,7 @@ th, td { text-align: left; padding: .5rem; border-bottom: 1px solid var(--line);
 .muted { color: var(--muted); }
 .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 label { display: block; font-size: .85rem; color: var(--muted); }
-input { width: 100%; padding: .5rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+input, textarea { width: 100%; padding: .5rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
 button { padding: .5rem .9rem; font: inherit; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; cursor: pointer; }
 a.btn-link { display: inline-block; padding: .5rem .9rem; font: inherit; border: 1px solid var(--accent); border-radius: 6px; text-decoration: none; background: var(--accent); color: #fff; }
 a.btn-link.secondary { background: transparent; color: var(--accent); }
@@ -27,6 +27,12 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 .fiche-card { padding: 1.5rem; }
 .fiche-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .75rem; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); }
 #fiche h2 { margin: 1.25rem 0 .5rem; font-size: 1.1rem; }
+.badge { padding: .1rem .55rem; font-size: .8rem; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.badge-existance { color: var(--warn); }
+.badge-specification { color: var(--accent); }
+#fiche h2 .facultatif, #fiche h2 .produits-vides { font-size: .85rem; font-weight: normal; }
+.produits-form { display: grid; gap: .75rem; }
+.produits-form textarea { resize: vertical; }
 .grid-position { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fiche-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
 .doublons-resultats { margin-top: 1rem; overflow-x: auto; }
