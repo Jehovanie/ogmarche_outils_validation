@@ -349,6 +349,11 @@ final class ValidationFlowTest extends WebTestCase
         self::assertStringContainsString('Testville', $crawler->filter('#btn-search-commune')->text());
         self::assertStringContainsString('(A)', $crawler->filter('#btn-search-denomination')->text());
         self::assertCount(1, $crawler->filter('#doublons-table'));
+        // outils de verification de la fiche ; BAN desactive sans identifiant d'adresse
+        foreach (['.btn-google', '.btn-maps', '.btn-images', '.btn-mairie', '.btn-streetview', '.btn-osm'] as $bouton) {
+            self::assertCount(1, $crawler->filter($bouton), $bouton);
+        }
+        self::assertNotNull($crawler->filter('.btn-ban')->attr('disabled'));
     }
 
     public function testAgentNeLiePasLesFichesDUneCommuneNonAttribuee(): void

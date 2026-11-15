@@ -3,15 +3,31 @@
          data-api-adresse="{{ path('api_marche_adresse', {id: m.id}) }}"
          data-api-nom="{{ path('api_marche_nom', {id: m.id}) }}"
          data-api-position="{{ path('api_marche_position', {id: m.id}) }}"
+         data-id-ban="{{ m.idBan }}"
          data-api-delier="{{ path('api_marche_delier', {id: m.id}) }}">
     <div class="fiche-card-head">
-        <span class="muted">
-            Fiche {{ m.id }}{% if groupe|length > 1 %} · groupe {{ m.codens }}{% endif %}
-        </span>
-        <div class="actions">
-            <button type="button" class="secondary btn-google">Recherche Google</button>
-            <button type="button" class="secondary btn-maps">Google Maps</button>
-            {% if groupe|length > 1 %}<button type="button" class="secondary btn-delier">Délier ce doublon</button>{% endif %}
+        <div class="fiche-card-titre">
+            <span class="muted">
+                Fiche {{ m.id }}{% if groupe|length > 1 %} · groupe {{ m.codens }}{% endif %}
+            </span>
+            {% if groupe|length > 1 %}<button type="button" class="secondary small btn-delier">Délier ce doublon</button>{% endif %}
+        </div>
+        <div class="outils-verif">
+            <div class="outils-col" aria-label="Recherches Google">
+                <button type="button" class="secondary small btn-google">Recherche Google</button>
+                <button type="button" class="secondary small btn-maps">Google Maps</button>
+            </div>
+            <div class="outils-col" aria-label="Images">
+                <button type="button" class="secondary small btn-images" title="Photos du marché : enseigne, étals, panneau">Google Images</button>
+            </div>
+            <div class="outils-col" aria-label="Commune et rue">
+                <button type="button" class="secondary small btn-mairie" title="Chercher le marché sur le site de la mairie">Mairie</button>
+                <button type="button" class="secondary small btn-streetview" title="Voir la rue à la position indiquée">Street View</button>
+            </div>
+            <div class="outils-col" aria-label="Carte et adresse officielle">
+                <button type="button" class="secondary small btn-osm" title="Voir la position sur OpenStreetMap">OpenStreetMap</button>
+                <button type="button" class="secondary small btn-ban" title="Fiche officielle de l'adresse (Base Adresse Nationale)" {% if not m.idBan %}disabled{% endif %}>BAN</button>
+            </div>
         </div>
     </div>
 

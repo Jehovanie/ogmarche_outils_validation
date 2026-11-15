@@ -29,7 +29,6 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 #fiche h2 { margin: 1.25rem 0 .5rem; font-size: 1.1rem; }
 .grid-position { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fiche-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
-.fiche-card-head .actions { margin-top: 0; }
 .doublons-resultats { margin-top: 1rem; overflow-x: auto; }
 .doublons-resultats .dataTables_wrapper { color: inherit; }
 .doublons-resultats table.dataTable tbody tr { background: transparent; }
@@ -46,3 +45,11 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 .grid-adresse > :nth-child(1), .grid-adresse > :nth-child(2), .grid-adresse > :nth-child(4) { grid-column: span 2; }
 .grid-adresse > :nth-child(3), .grid-adresse > :nth-child(5) { grid-column: span 3; }
 @media (max-width: 480px) { .grid-adresse > * { grid-column: 1 / -1 !important; } }
+
+/* Outils de verification : petits boutons, deux colonnes empilees, alignees a droite de l'en-tete de la fiche */
+.fiche-card-head { align-items: flex-start; }
+.fiche-card-titre { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.outils-verif { display: flex; gap: .6rem; margin-left: auto; }
+.outils-col { display: flex; flex-direction: column; gap: .35rem; }
+button.small { padding: .35rem .9rem; font-size: .9rem; text-align: center; white-space: nowrap; }
+@media (max-width: 480px) { .outils-verif { margin-left: 0; width: 100%; } .outils-col { flex: 1; } }

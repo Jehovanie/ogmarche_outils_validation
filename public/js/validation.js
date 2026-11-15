@@ -20,7 +20,7 @@
 
     // ---------------------------------------------------------------- une fiche du groupe
     const initCard = (card) => {
-        const { id, apiAdresse, apiNom, apiPosition, apiDelier } = card.dataset;
+        const { id, idBan, apiAdresse, apiNom, apiPosition, apiDelier } = card.dataset;
         const $ = (sel) => card.querySelector(sel);
         const nomForm = $('.nom-form');
         const adresseForm = $('.adresse-form');
@@ -107,9 +107,39 @@
                 v('codePostal', adresseForm), v('commune', adresseForm),
             ].filter(Boolean).join(' ');
         };
-        const ouvrir = (base) => window.open(`${base}${encodeURIComponent(requete())}`, '_blank', 'noopener');
+        const aller = (url) => window.open(url, '_blank', 'noopener');
+        const ouvrir = (base, texte = requete()) => aller(`${base}${encodeURIComponent(texte)}`);
         $('.btn-google').addEventListener('click', () => ouvrir('https://www.google.com/search?q='));
         $('.btn-maps').addEventListener('click', () => ouvrir('https://www.google.com/maps?q='));
+        // photos : enseigne, etals, panneau du marche
+        $('.btn-images').addEventListener('click', () => ouvrir('https://www.google.com/search?tbm=isch&q='));
+        // source officielle probable : le site de la commune
+        $('.btn-mairie').addEventListener('click', () => ouvrir(
+            'https://www.google.com/search?q=',
+            `mairie ${(adresseForm.elements.commune.value || '').trim()} marché`.trim(),
+        ));
+        // verification de la position, a partir des coordonnees actuellement saisies
+        const coordonnees = () => {
+            const lat = nombre(positionForm.elements.latitude.value);
+            const lng = nombre(positionForm.elements.longitude.value);
+            if (lat === null || lng === null) {
+                show('Renseignez une latitude et une longitude valides pour ouvrir cette carte.', 'warn');
+                return null;
+            }
+            return { lat, lng };
+        };
+        $('.btn-streetview').addEventListener('click', () => {
+            const c = coordonnees();
+            if (c) aller(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.lat},${c.lng}`);
+        });
+        $('.btn-osm').addEventListener('click', () => {
+            const c = coordonnees();
+            if (c) aller(`https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=18/${c.lat}/${c.lng}`);
+        });
+        // Base Adresse Nationale : controle du geocodage d'origine
+        $('.btn-ban').addEventListener('click', () => {
+            if (idBan) aller(`https://adresse.data.gouv.fr/base-adresse-nationale/${encodeURIComponent(idBan)}`);
+        });
 
         // dissocier ce doublon
         const btnDelier = $('.btn-delier');
