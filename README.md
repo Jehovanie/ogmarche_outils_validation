@@ -81,7 +81,13 @@ Il peut être relancé sans danger : il ne fait rien si `marche` contient déjà
 ### 6. Créer le premier administrateur
 
 ```bash
-php bin/console app:user:create admin@exemple.fr 'un-mot-de-passe' --name="Admin" --admin
+php bin/console app:user:create admin@md.fr 'admin' --name="Admin" --admin
+php bin/console app:user:create agent1@md.fr 'agent' --name="Agent 1"
+php bin/console app:user:create agent2@md.fr 'agent' --name="Agent 2"
+php bin/console app:user:create agent3@md.fr 'agent' --name="Agent 3"
+php bin/console app:user:create agent4@md.fr 'agent' --name="Agent 4"
+php bin/console app:user:create agent5@md.fr 'agent' --name="Agent 5"
+php bin/console app:user:create agent6@md.fr 'agent' --name="Agent 6"
 ```
 
 L'administrateur crée ensuite les agents et leur distribue les départements depuis l'écran **Administration**

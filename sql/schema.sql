@@ -1,27 +1,22 @@
 -- Schéma PostgreSQL pour data/data_geocoder_final.csv
 -- Le CSV est un fichier à valider : séparateur ';', encodage UTF-8, en-tête présent,
--- 45 colonnes dont "id" en double (colonnes 15 et 36).
+-- 45 colonnes dont "id" en double (colonnes 17 et 36).
 --   * 1re "id"  -> id          (identifiant du marché, source jours de marché)
 --   * 2e  "id"  -> id_ban      (identifiant de l'adresse géocodée)
 --
--- IMPORTANT : les colonnes de la table sont dans le MÊME ORDRE que le CSV et il n'y a
--- pas de colonne technique, pour qu'un import générique (pgAdmin, DBeaver, \copy sans
--- liste de colonnes) fonctionne tel quel.
--- Les colonnes sont permissives (NULL autorisé, pas de FK ni UNIQUE) : la table reçoit
--- les données brutes, la validation se fait ensuite.
+-- ATTENTION : l'ordre des colonnes de la table n'est PAS celui du CSV (jdm_unique_id et
+-- prod_unique_id sont en fin de table). Il faut donc TOUJOURS passer la liste des colonnes
+-- au \copy, dans l'ordre de l'en-tête du CSV (voir ci-dessous). Les colonnes sont permissives
+-- (NULL autorisé, pas de FK ni UNIQUE) : la table reçoit les données brutes, la validation
+-- se fait ensuite. Les lignes non géocodées (~700) ont commune / code_insee vides.
 --
--- Import :
---   \copy ogmarche.marche_geocode_raw FROM 'data/data_geocoder_final.csv'
---     WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8')
---
--- Après import, si une clé technique est souhaitée :
---   ALTER TABLE ogmarche.marche_geocode_raw
---     ADD COLUMN row_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY;
+-- Import (depuis la racine du projet ; row_id est ajouté par sql/marche.sql) :
+--   \copy ogmarche.marche_geocode_raw(unique_id, jdm_unique_id, id_marche, denomination_f, departement, code_dep, jours_txt, heure_debut, heure_fin, toute_annee, mois_debut, mois_fin, produits, horaire_brut, denomination_normalise, prod_unique_id, id, clenum, specificite, jour_de_marche_1, jour_de_marche_2, jour_de_marche_3, jour_de_marche_4, jour_de_marche_5, jour_de_marche_6, jour_de_marche_7, date_data, date_inser, is_deleted, updated_at, description, action_type, longitude, latitude, "precision", id_ban, num_voie, code_postal, commune, code_insee, insee_ancien, commune_ancienne, type_voie, nom_voie, depcode) FROM 'data/data_geocoder_final.csv' WITH (FORMAT csv, DELIMITER ';', HEADER true, QUOTE '"', ENCODING 'UTF8')
 
 CREATE SCHEMA IF NOT EXISTS ogmarche;
 
 CREATE TABLE IF NOT EXISTS ogmarche.marche_geocode_raw (
-    unique_id              varchar(40),            --  1 JDM-<uuid>
+    unique_id              varchar(40),            --  1 ID-<uuid>
     id_marche              integer,                --  2
     denomination_f         varchar(100),           --  3
     departement            varchar(50),            --  4
@@ -59,7 +54,7 @@ CREATE TABLE IF NOT EXISTS ogmarche.marche_geocode_raw (
     id_ban                 varchar(20),            -- 36 2e colonne "id" du CSV
     num_voie               varchar(10),            -- 37 ex. '37bis'
     code_postal            varchar(5),             -- 38
-    commune                varchar(100) NOT NULL,  -- 39
+    commune                varchar(100),            -- 39
     code_insee             varchar(5),             -- 40
     insee_ancien           varchar(5),             -- 41
     commune_ancienne       varchar(100),           -- 42

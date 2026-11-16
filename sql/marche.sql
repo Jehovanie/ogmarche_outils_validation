@@ -2,6 +2,7 @@
 -- ogmarche.marche_geocode_raw (import brut du CSV). A lancer APRES la migration Doctrine
 -- (php bin/console doctrine:migrations:migrate). Rejouable : ne fait rien si marche est deja remplie.
 --
+-- commune vide (ligne non geocodee) -> '' car ogmarche.marche.commune est NOT NULL.
 -- Perimetre repris : lignes non supprimees (is_deleted NULL ou 0). Les lignes sans code INSEE
 -- sont chargees mais n'apparaissent dans aucune commune (donc dans aucun perimetre d'agent).
 
@@ -18,7 +19,7 @@ INSERT INTO ogmarche.marche (
 )
 SELECT
     r.row_id, r.unique_id, r.id_marche, r.denomination_f, r.denomination_normalise, r.code_dep,
-    r.num_voie, r.type_voie, r.nom_voie, r.code_postal, r.commune, r.code_insee,
+    r.num_voie, r.type_voie, r.nom_voie, r.code_postal, COALESCE(r.commune, ''), r.code_insee,
     r.longitude, r.latitude, r.precision, r.id_ban, r.produits, r.specificite, r.action_type,
     NULLIF(btrim(r.horaire_brut), ''), NULLIF(btrim(r.jours_txt), ''), r.heure_debut, r.heure_fin, r.toute_annee,
     NULLIF(btrim(r.mois_debut), ''), NULLIF(btrim(r.mois_fin), '')
