@@ -59,9 +59,12 @@ final class ValidationController extends AbstractController
             return $this->redirectToRoute('app_communes', ['dep' => $dep]);
         }
 
+        $groupe = $this->validation->groupe($marche);
+
         return $this->render('validation/fiche.html.twig', [
             'marche' => $marche,
-            'groupe' => $this->validation->groupe($marche),
+            'groupe' => $groupe,
+            'decision' => $this->validation->decisionGarde($groupe),
             'dep' => $dep,
             'insee' => $insee,
         ]);

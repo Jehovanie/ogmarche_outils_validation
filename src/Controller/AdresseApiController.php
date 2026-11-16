@@ -14,6 +14,7 @@ use App\Service\AdresseValidationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -48,6 +49,26 @@ final class AdresseApiController extends AbstractController
     {
         $this->checkCsrf($request);
         $this->validation->definirNomOk($id, $request->query->getBoolean('valeur', true), $this->agent());
+
+        return $this->json(['ok' => true]);
+    }
+
+    /** Decision garder / ne pas garder pour la fiche et son groupe : ?valeur=1 (garder), 0 (ne pas garder), vide (pas decide). */
+    #[Route('/garde', name: 'api_marche_garde', methods: ['POST'])]
+    public function garde(int $id, Request $request): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $garde = match ($request->query->getString('valeur')) {
+            '1' => true,
+            '0' => false,
+            '' => null,
+            default => throw new BadRequestHttpException('Valeur attendue : 1, 0 ou vide.'),
+        };
+        try {
+            $this->validation->definirGarde($id, $garde, $this->agent());
+        } catch (\DomainException $e) {
+            return $this->json(['ok' => false, 'message' => $e->getMessage()], 422);
+        }
 
         return $this->json(['ok' => true]);
     }

@@ -99,12 +99,20 @@ final class ValidationFlowTest extends WebTestCase
 
         $this->post("/api/marche/$id/produits-ok", $csrf);
         self::assertResponseIsSuccessful();
+
+        // tout est valide mais aucune decision garder / ne pas garder : refuse
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('garder', json_decode($this->client->getResponse()->getContent(), true)['message']);
+
+        $this->post("/api/marche/$id/garde?valeur=1", $csrf);
         $this->post("/api/marche/$id/traite", $csrf);
         self::assertResponseIsSuccessful();
 
         $this->em->clear();
         $fiche = $this->em->find(Marche::class, $id);
         self::assertTrue($fiche->isTraite());
+        self::assertTrue($fiche->isGarde());
         self::assertTrue($fiche->isAdresseOk());
         self::assertTrue($fiche->isNomOk());
         self::assertSame('Marché de Testville', $fiche->getDenomination());
@@ -193,8 +201,102 @@ final class ValidationFlowTest extends WebTestCase
 
         $this->post("/api/marche/$id/nom-ok", $csrf);
         $this->post("/api/marche/$id/adresse-ok", $csrf);
+        $this->post("/api/marche/$id/garde?valeur=0", $csrf);
         $this->post("/api/marche/$id/traite", $csrf);
         self::assertResponseIsSuccessful();
+    }
+
+    public function testExistenceNePasseALaSuivanteSansDecision(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $csrf = $this->csrf();
+        foreach (['nom-ok', 'adresse-ok', 'produits-ok'] as $action) {
+            $this->post("/api/marche/$id/$action", $csrf);
+        }
+
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        $this->em->clear();
+        self::assertFalse($this->em->find(Marche::class, $id)->isTraite());
+
+        // decision annulee : de nouveau refuse
+        $this->post("/api/marche/$id/garde?valeur=1", $csrf);
+        $this->post("/api/marche/$id/garde?valeur=", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->post("/api/marche/$id/garde?valeur=0", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testDecisionGarderNePasGarderSurUneExistence(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $csrf = $this->csrf();
+
+        // les boutons sont dans l'en-tete, a cote de "Traiter", et pas dans la fiche
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertCount(2, $crawler->filter('.fiche-head .btn-garde'));
+        self::assertCount(0, $crawler->filter('.fiche-card .btn-garde'));
+
+        $this->post("/api/marche/$id/garde?valeur=1", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertTrue($this->em->find(Marche::class, $id)->isGarde());
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertSame('Gardée ✓', trim($crawler->filter('.btn-garde[aria-pressed=true]')->text()));
+
+        $this->post("/api/marche/$id/garde?valeur=0", $csrf);
+        $this->em->clear();
+        self::assertFalse($this->em->find(Marche::class, $id)->isGarde());
+
+        $this->post("/api/marche/$id/garde?valeur=", $csrf);
+        $this->em->clear();
+        self::assertNull($this->em->find(Marche::class, $id)->isGarde());
+
+        $this->post("/api/marche/$id/garde?valeur=peutetre", $csrf);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testDecisionGardeRefuseeSurUneSpecification(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $csrf = $this->csrf();
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertCount(0, $crawler->filter('.btn-garde'));
+
+        $this->post("/api/marche/$id/garde?valeur=1", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        $this->em->clear();
+        self::assertNull($this->em->find(Marche::class, $id)->isGarde());
+    }
+
+    public function testDecisionGardeDUnGroupeSuitLExistence(): void
+    {
+        $this->agentAvecPerimetre();
+        $exist = $this->creerFiche('Exist', actionType: ActionType::Existance);
+        $spec = $this->creerFiche('Spec', actionType: ActionType::Specification);
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$exist/lier", $csrf, ['ids' => [$spec]]);
+        self::assertResponseIsSuccessful();
+
+        // depuis la specification comme depuis l'existence : une seule decision pour le groupe
+        $this->post("/api/marche/$spec/garde?valeur=0", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertFalse($this->em->find(Marche::class, $exist)->isGarde());
+        self::assertNull($this->em->find(Marche::class, $spec)->isGarde());
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE.'?fiche='.$spec);
+        self::assertCount(2, $crawler->filter('.fiche-card'));
+        self::assertCount(2, $crawler->filter('.fiche-head .btn-garde'));
+        self::assertSame('Pas gardée ✓', trim($crawler->filter('.btn-garde[aria-pressed=true]')->text()));
     }
 
     public function testUnGroupeMixteAppliqueLaRegleDeChaqueFiche(): void
@@ -214,6 +316,12 @@ final class ValidationFlowTest extends WebTestCase
 
         $this->post("/api/marche/$exist/nom-ok", $csrf);
         $this->post("/api/marche/$exist/adresse-ok", $csrf);
+        // tout est valide, mais le groupe compte une existence : la decision est exigee
+        $this->post("/api/marche/$spec/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        // prise depuis la specification, elle est portee par l'existence
+        $this->post("/api/marche/$spec/garde?valeur=1", $csrf);
         $this->post("/api/marche/$spec/traite", $csrf);
         self::assertResponseIsSuccessful();
     }
@@ -541,6 +649,7 @@ final class ValidationFlowTest extends WebTestCase
         $this->post("/api/marche/$b/nom-ok", $csrf);
         $this->post("/api/marche/$b/adresse-ok", $csrf);
         $this->post("/api/marche/$b/produits-ok", $csrf);
+        $this->post("/api/marche/$a/garde?valeur=1", $csrf);
         $this->post("/api/marche/$a/traite", $csrf);
         self::assertResponseIsSuccessful();
         $this->em->clear();

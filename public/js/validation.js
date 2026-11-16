@@ -1,7 +1,7 @@
 (() => {
     const page = document.getElementById('fiche');
     if (!page) return;
-    const { csrf, id: ficheId, next, apiTraite, apiLier, apiCandidats } = page.dataset;
+    const { csrf, id: ficheId, next, apiTraite, apiGarde, apiLier, apiCandidats } = page.dataset;
     const pageMessage = document.getElementById('message-page');
 
     const post = (url, body) => fetch(url, {
@@ -232,6 +232,27 @@
     };
 
     const cards = [...document.querySelectorAll('.fiche-card')].map(initCard);
+
+    // ---------------------------------------------------------------- decision garder / ne pas garder
+    // une seule decision pour la fiche et son groupe ; recliquer sur le choix actif l'annule
+    const libellesGarde = { 1: ['Garder', 'Gardée ✓'], 0: ['Ne pas garder', 'Pas gardée ✓'] };
+    const boutonsGarde = [...document.querySelectorAll('.btn-garde')];
+    boutonsGarde.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const dejaActif = btn.getAttribute('aria-pressed') === 'true';
+            const { res, data } = await post(`${apiGarde}?valeur=${dejaActif ? '' : btn.dataset.valeur}`);
+            if (!res.ok) {
+                pageMessage.className = 'flash warn';
+                pageMessage.textContent = data.message || 'Action impossible.';
+                return;
+            }
+            boutonsGarde.forEach((autre) => {
+                const actif = !dejaActif && autre === btn;
+                autre.setAttribute('aria-pressed', actif ? 'true' : 'false');
+                autre.textContent = libellesGarde[autre.dataset.valeur][actif ? 1 : 0];
+            });
+        });
+    });
 
     // ---------------------------------------------------------------- traitement du groupe
     document.getElementById('btn-traite').addEventListener('click', async () => {

@@ -11,11 +11,19 @@
          data-csrf="{{ csrf_token('marche') }}"
          data-id="{{ marche.id }}"
          data-next="{{ path('app_fiche', {dep: dep, insee: insee}) }}"
+         data-api-garde="{{ path('api_marche_garde', {id: marche.id}) }}"
          data-api-traite="{{ path('api_marche_traite', {id: marche.id}) }}"
          data-api-lier="{{ path('api_marche_lier', {id: marche.id}) }}"
          data-api-candidats="{{ path('api_marche_candidats', {id: marche.id}) }}">
     <div class="fiche-head">
         <a href="{{ path('app_communes', {dep: dep}) }}" class="btn-link secondary">← Communes du {{ dep }}</a>
+        {# decision garder / ne pas garder, portee par les fiches "existence a valider" du groupe #}
+        {% if decision.possible %}
+            <div class="decision-garde" role="group" aria-label="Décision sur la fiche">
+                <button type="button" class="secondary btn-garde" data-valeur="1" aria-pressed="{{ decision.garde is same as(true) ? 'true' : 'false' }}">{{ decision.garde is same as(true) ? 'Gardée ✓' : 'Garder' }}</button>
+                <button type="button" class="secondary btn-garde" data-valeur="0" aria-pressed="{{ decision.garde is same as(false) ? 'true' : 'false' }}">{{ decision.garde is same as(false) ? 'Pas gardée ✓' : 'Ne pas garder' }}</button>
+            </div>
+        {% endif %}
         <button type="button" id="btn-traite">{{ groupe|length > 1 ? 'Traiter le groupe et passer à la suivante' : 'Traiter et passer à la suivante' }}</button>
     </div>
     <div id="message-page" role="status"></div>

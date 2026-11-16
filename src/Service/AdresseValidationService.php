@@ -113,6 +113,43 @@ final class AdresseValidationService
         $this->em->flush();
     }
 
+    /**
+     * Decision de l'agent pour toute la fiche et son groupe de doublons : garder (true), ne pas garder
+     * (false) ou revenir a "pas decide" (null). Elle est portee par les fiches "existence a valider" du
+     * groupe ; les fiches "specification a valider" suivent la decision de l'existence.
+     *
+     * @throws \DomainException si le groupe ne compte aucune fiche dont l'existence est a valider
+     */
+    public function definirGarde(int $id, ?bool $garde, User $user): void
+    {
+        $groupe = $this->groupe($this->fiche($id, $user));
+        $existences = array_filter($groupe, static fn (Marche $m): bool => $m->getActionType()->exigeNomEtAdresse());
+        if ([] === $existences) {
+            throw new \DomainException("La décision garder / ne pas garder ne concerne que les fiches dont l'existence est à valider.");
+        }
+        foreach ($existences as $marche) {
+            $this->assertDansPerimetre($marche, $user);
+            $marche->setGarde($garde);
+        }
+        $this->em->flush();
+    }
+
+    /**
+     * Etat de la decision garder / ne pas garder d'un groupe : possible s'il compte une existence a valider,
+     * et valeur commune de ces fiches (null si pas decide ou si elles divergent).
+     *
+     * @param list<Marche> $groupe
+     *
+     * @return array{possible: bool, garde: ?bool}
+     */
+    public function decisionGarde(array $groupe): array
+    {
+        $existences = array_values(array_filter($groupe, static fn (Marche $m): bool => $m->getActionType()->exigeNomEtAdresse()));
+        $valeurs = array_unique(array_map(static fn (Marche $m): ?bool => $m->isGarde(), $existences), \SORT_REGULAR);
+
+        return ['possible' => [] !== $existences, 'garde' => 1 === \count($valeurs) ? $valeurs[0] : null];
+    }
+
     public function definirNomOk(int $id, bool $ok, User $user): void
     {
         $this->fiche($id, $user)->setNomOk($ok);
@@ -128,7 +165,8 @@ final class AdresseValidationService
     /**
      * Traite la fiche, et tout son groupe de doublons le cas echeant. Chaque fiche doit avoir
      * ses horaires verifies (s'il y a un horaire_brut) et ses produits valides (s'il y en a) ; une fiche
-     * EXISTANCE_AVALIDER doit aussi avoir son nom et son adresse.
+     * EXISTANCE_AVALIDER doit aussi avoir son nom et son adresse, et le groupe une decision garder / ne pas garder
+     * des qu'il compte une telle fiche.
      *
      * @throws \DomainException si une validation exigee manque sur une fiche du groupe
      */
@@ -152,6 +190,12 @@ final class AdresseValidationService
             if ($marche->exigeValidationProduits() && !$marche->isProduitsOk()) {
                 throw new \DomainException(\sprintf('Les produits doivent être validés avant de traiter la fiche %d.', $marche->getId()));
             }
+        }
+
+        // une existence a valider (seule ou dans le groupe) exige la decision garder / ne pas garder
+        $decision = $this->decisionGarde($groupe);
+        if ($decision['possible'] && null === $decision['garde']) {
+            throw new \DomainException('Indiquez si la fiche est à garder ou à ne pas garder avant de la traiter.');
         }
 
         $now = $this->clock->now();

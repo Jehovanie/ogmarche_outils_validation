@@ -30,6 +30,9 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 .badge { padding: .1rem .55rem; font-size: .8rem; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
 .badge-existance { color: var(--warn); }
 .badge-specification { color: var(--accent); }
+.decision-garde { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.decision-garde .btn-garde[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.decision-garde .btn-garde[data-valeur="0"][aria-pressed="true"] { background: var(--warn); border-color: var(--warn); }
 #fiche h2 .facultatif, #fiche h2 .produits-vides { font-size: .85rem; font-weight: normal; }
 .horaire-brut { margin: 0 0 .75rem; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: var(--bg); }
 .horaire-form { display: grid; gap: .75rem; }

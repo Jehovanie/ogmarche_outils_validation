@@ -133,6 +133,13 @@ class Marche
     #[ORM\Column(name: 'horaire_ok', options: ['default' => false])]
     private bool $horaireOk = false;
 
+    /**
+     * Decision de l'agent sur une fiche "existence a valider" : true = garder, false = ne pas garder,
+     * null = pas encore decide. Sans objet pour une specification a valider.
+     */
+    #[ORM\Column(name: 'garde', nullable: true)]
+    private ?bool $garde = null;
+
     /** Fiche entierement traitee par l'agent. */
     #[ORM\Column(options: ['default' => false])]
     private bool $traite = false;
@@ -386,6 +393,18 @@ class Marche
     public function setProduitsOk(bool $produitsOk): static
     {
         $this->produitsOk = $produitsOk;
+
+        return $this;
+    }
+
+    public function isGarde(): ?bool
+    {
+        return $this->garde;
+    }
+
+    public function setGarde(?bool $garde): static
+    {
+        $this->garde = $garde;
 
         return $this;
     }

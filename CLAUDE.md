@@ -52,6 +52,7 @@ PHPUnit is configured with `failOnDeprecation`, `failOnNotice` and `failOnWarnin
 **Validation state on `Marche`.**
 - `nomOk` and `adresseOk` are set explicitly by the agent. Editing the name or the address (`changeDenomination` / `changeAdresse`) resets the matching flag to false.
 - `marquerTraite` requires both flags on **every record of the group**, and stamps `validatedBy` and `dateDeValidation` using the injected `ClockInterface`.
+- **Décision garder / ne pas garder** (`Marche::garde`, nullable): one decision per fiche or group, set from the page header (`/api/marche/{id}/garde`) and stored on the `EXISTANCE_AVALIDER` fiches of the group (specifications follow them). `marquerTraite` refuses to proceed while a group with an existence has no decision.
 - A postal code / département mismatch (`CodePostalDepartement`) is only a warning, never a blocker.
 
 **Duplicate groups ("codens").**
