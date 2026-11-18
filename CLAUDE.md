@@ -16,6 +16,7 @@ symfony serve -d                                   # or: php -S localhost:8000 -
 php bin/console doctrine:migrations:migrate --no-interaction
 php bin/console app:user:create <email> <password> [--name=...] [--admin]   # first admin; agents are then created in /admin
 php bin/console app:attribution:assign <email> <dep>   # gives the whole département to the agent (same as /admin)
+php bin/console app:horaire:importer [--force]      # fills ogmarche.marche_horaire from horaire_brut (--force: re-reads fiches whose horaires are not yet verified)
 
 php bin/phpunit                                    # all tests
 php bin/phpunit --filter testAgentCorrigeValideEtTraiteUneFiche   # single test
@@ -32,6 +33,7 @@ PHPUnit is configured with `failOnDeprecation`, `failOnNotice` and `failOnWarnin
   1. `sql/schema.sql` creates `ogmarche.marche_geocode_raw`, which is loaded from `data/data_geocoder_final.csv` (git-ignored) with `\copy`.
   2. Doctrine migrations create `user`, `ogmarche.marche`, `ogmarche.commune_attribution` and `ogmarche.codens`.
   3. `sql/marche.sql` copies raw rows into `ogmarche.marche` (it does nothing if `marche` already has rows).
+  4. `app:horaire:importer` parses `horaire_brut` (`HoraireBrut`) into `ogmarche.marche_horaire`.
 - `doctrine.dbal.schema_filter` in `config/packages/doctrine.yaml` restricts Doctrine to its own tables, so `marche_geocode_raw` stays out of migration diffs. If you add an entity, **extend that regex** or `make:migration` won't see the new table. `user` is a PostgreSQL reserved word and reaches the filter as `"user"`, hence the optional quotes.
 - There is no separate test database. Tests run against the configured database, inside transactions rolled back by `dama/doctrine-test-bundle`. Test fixtures use département `99` / INSEE `99001`.
 
@@ -53,6 +55,8 @@ PHPUnit is configured with `failOnDeprecation`, `failOnNotice` and `failOnWarnin
 - `nomOk` and `adresseOk` are set explicitly by the agent. Editing the name or the address (`changeDenomination` / `changeAdresse`) resets the matching flag to false.
 - `marquerTraite` requires both flags on **every record of the group**, and stamps `validatedBy` and `dateDeValidation` using the injected `ClockInterface`.
 - **Décision garder / ne pas garder** (`Marche::garde`, nullable): one decision per fiche or group, set from the page header (`/api/marche/{id}/garde`) and stored on the `EXISTANCE_AVALIDER` fiches of the group (specifications follow them). `marquerTraite` refuses to proceed while a group with an existence has no decision.
+- **Spécificité** (`Marche::specificite`, free text ≤ 255, e.g. "Marché bio"): shown and editable on the fiche, with its own `specificiteOk` flag (reset on edit, like produits). Empty = nothing to validate until the agent adds one; once non-empty, `marquerTraite` requires it validated. `sql/marche.sql` and the migration decode the literal `\uXXXX` sequences found in the CSV.
+- **Horaires par jour**: `ogmarche.marche_horaire` (`MarcheHoraire`: `jour` 1=lundi, optional `moment` matin/après-midi/soir/journée, optional `heure_debut`/`heure_fin`; no end = "à partir de"). One or several créneaux per day; `Marche::changeHoraire` replaces them all and resets `horaireOk`. The period (`toute_annee`, `mois_*`) stays on `marche`. `HoraireBrut::analyser` is the only parser of `horaire_brut`; an unrecognised segment is never guessed. Warnings (`getAvertissementsHoraire`: day without hour/moment, end ≤ start, day of the original text missing) are never blockers. Schema filter includes `marche_horaire`.
 - A postal code / département mismatch (`CodePostalDepartement`) is only a warning, never a blocker.
 
 **Duplicate groups ("codens").**

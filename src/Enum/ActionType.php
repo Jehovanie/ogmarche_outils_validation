@@ -4,8 +4,8 @@ namespace App\Enum;
 
 /**
  * Ce que l'agent doit valider sur une fiche (colonne action_type du CSV).
- *  - SPECIFICATION_AVALIDER : seulement les produits ;
- *  - EXISTANCE_AVALIDER : l'existence du marche, donc nom, adresse et produits.
+ *  - SPECIFICATION_AVALIDER : seulement les produits, la specificite et les horaires ;
+ *  - EXISTANCE_AVALIDER : l'existence du marche, donc aussi nom et adresse.
  */
 enum ActionType: string
 {

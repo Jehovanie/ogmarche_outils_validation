@@ -37,7 +37,7 @@
 
     // ---------------------------------------------------------------- une fiche du groupe
     const initCard = (card) => {
-        const { id, apiAdresse, apiNom, apiPosition, apiHoraire, apiHoraireOk, apiProduits, apiProduitsOk, apiDelier } = card.dataset;
+        const { id, apiAdresse, apiNom, apiPosition, apiHoraire, apiHoraireOk, apiProduits, apiProduitsOk, apiSpecificite, apiSpecificiteOk, apiDelier } = card.dataset;
         const $ = (sel) => card.querySelector(sel);
         const nomForm = $('.nom-form');
         const adresseForm = $('.adresse-form');
@@ -52,6 +52,10 @@
         let adresseDirty = false;
         let produitsDirty = false;
         const horaireForm = $('.horaire-form');
+        const specificiteForm = $('.specificite-form');
+        const specificiteVide = $('.specificite-vide');
+        const btnSpecificiteOk = $('.btn-specificite-ok');
+        let specificiteDirty = false;
         const btnHoraireOk = $('.btn-horaire-ok');
         let horaireDirty = false;
 
@@ -108,32 +112,126 @@
             return true;
         };
 
-        // horaires : "toute l'annee" rend les mois sans objet
+        // horaires : un tableau lundi -> dimanche, un ou plusieurs creneaux par jour ouvert
+        const modeleCreneau = $('.modele-creneau');
+        const lignesJours = [...horaireForm.querySelectorAll('.jour-ligne')];
+        const creneauxDe = (ligne) => [...ligne.querySelectorAll('.creneau')];
+        const ajouterCreneau = (ligne, valeurs = {}) => {
+            const c = modeleCreneau.content.firstElementChild.cloneNode(true);
+            c.querySelector('[name="moment"]').value = valeurs.moment ?? '';
+            c.querySelector('[name="heureDebut"]').value = valeurs.heureDebut ?? '';
+            c.querySelector('[name="heureFin"]').value = valeurs.heureFin ?? '';
+            ligne.querySelector('.creneaux').append(c);
+        };
+        const lireCreneau = (c) => ({
+            moment: c.querySelector('[name="moment"]').value || null,
+            heureDebut: c.querySelector('[name="heureDebut"]').value || null,
+            heureFin: c.querySelector('[name="heureFin"]').value || null,
+        });
+        // met en evidence : jour ouvert, jour ouvert sans heure ni moment
+        const rafraichirJour = (ligne) => {
+            const ouvert = ligne.querySelector('[name="ouvert"]').checked;
+            const incomplet = ouvert && creneauxDe(ligne).some((c) => { const v = lireCreneau(c); return !v.moment && !v.heureDebut; });
+            ligne.classList.toggle('ouvert', ouvert);
+            ligne.classList.toggle('incomplet', incomplet);
+            ligne.querySelector('.badge-incomplet').hidden = !incomplet;
+            ligne.querySelector('.btn-creneau-ajout').hidden = !ouvert;
+            ligne.querySelector('.btn-creneau-copie').hidden = !ouvert;
+        };
         const basculerMois = () => {
             const touteAnnee = horaireForm.elements.touteAnnee.checked;
             horaireForm.elements.moisDebut.disabled = touteAnnee;
             horaireForm.elements.moisFin.disabled = touteAnnee;
         };
-        horaireForm.addEventListener('change', () => {
+        const modifie = () => {
             horaireDirty = true;
             setOk(btnHoraireOk, false, '', 'Horaires corrects');
+        };
+        horaireForm.addEventListener('change', (e) => {
+            modifie();
+            const ligne = e.target.closest('.jour-ligne');
+            if (ligne) {
+                // un jour qu'on ouvre a toujours un creneau a remplir ; un jour qu'on ferme n'en garde aucun
+                if (e.target.name === 'ouvert') {
+                    if (e.target.checked && creneauxDe(ligne).length === 0) ajouterCreneau(ligne);
+                    if (!e.target.checked) ligne.querySelector('.creneaux').replaceChildren();
+                }
+                rafraichirJour(ligne);
+            }
             basculerMois();
         });
+        horaireForm.addEventListener('click', (e) => {
+            const ligne = e.target.closest('.jour-ligne');
+            if (!ligne) return;
+            if (e.target.closest('.btn-creneau-ajout')) {
+                ajouterCreneau(ligne);
+            } else if (e.target.closest('.btn-creneau-retrait')) {
+                e.target.closest('.creneau').remove();
+                // dernier creneau retire : le jour est ferme
+                if (creneauxDe(ligne).length === 0) ligne.querySelector('[name="ouvert"]').checked = false;
+            } else if (e.target.closest('.btn-creneau-copie')) {
+                const source = creneauxDe(ligne).map(lireCreneau);
+                for (const autre of lignesJours) {
+                    if (autre === ligne || !autre.querySelector('[name="ouvert"]').checked) continue;
+                    autre.querySelector('.creneaux').replaceChildren();
+                    source.forEach((v) => ajouterCreneau(autre, v));
+                    rafraichirJour(autre);
+                }
+            } else return;
+            modifie();
+            rafraichirJour(ligne);
+        });
+        const afficherResultatHoraire = (data) => {
+            horaireForm.querySelector('.horaire-resume strong').textContent = data.resume || 'aucun jour';
+            const alerte = horaireForm.querySelector('.horaire-avertissements');
+            alerte.textContent = (data.avertissements || []).join(' ');
+            alerte.hidden = !(data.avertissements || []).length;
+        };
         const enregistrerHoraire = async () => {
             const f = horaireForm.elements;
+            const creneaux = [];
+            for (const ligne of lignesJours) {
+                if (!ligne.querySelector('[name="ouvert"]').checked) continue;
+                const lus = creneauxDe(ligne).map(lireCreneau);
+                // jour ouvert sans creneau saisi : jour connu, horaire inconnu
+                (lus.length ? lus : [{ moment: null, heureDebut: null, heureFin: null }]).forEach((v) => creneaux.push({ jour: ligne.dataset.jour, ...v }));
+            }
             const { res, data } = await post(apiHoraire, {
-                jours: [...horaireForm.querySelectorAll('input[name="jours"]:checked')].map((c) => c.value),
-                heureDebut: f.heureDebut.value || null,
-                heureFin: f.heureFin.value || null,
+                creneaux,
                 touteAnnee: f.touteAnnee.checked,
                 moisDebut: f.touteAnnee.checked ? null : f.moisDebut.value || null,
                 moisFin: f.touteAnnee.checked ? null : f.moisFin.value || null,
             });
             if (!res.ok) { show(res.status === 422 ? violations(data, 'Horaires invalides.') : 'Enregistrement impossible.', 'warn'); return false; }
             horaireDirty = false;
-            show('Horaires enregistrés.');
+            afficherResultatHoraire(data);
+            show((data.avertissements || []).length ? 'Horaires enregistrés, à vérifier : voir l\'alerte.' : 'Horaires enregistrés.', (data.avertissements || []).length ? 'warn' : 'ok');
             return true;
         };
+        // specificite : texte libre court ; vide, rien a valider tant que l'agent n'en ajoute pas
+        specificiteForm.addEventListener('input', () => {
+            specificiteDirty = true;
+            setOk(btnSpecificiteOk, false, '', 'Spécificité correcte');
+            const vide = specificiteForm.elements.specificite.value.trim() === '';
+            specificiteVide.hidden = !vide;
+            btnSpecificiteOk.hidden = vide;
+        });
+        const enregistrerSpecificite = async () => {
+            const { res, data } = await post(apiSpecificite, Object.fromEntries(new FormData(specificiteForm).entries()));
+            if (!res.ok) { show(res.status === 422 ? violations(data, 'Spécificité invalide.') : 'Enregistrement impossible.', 'warn'); return false; }
+            specificiteDirty = false;
+            show('Spécificité enregistrée.');
+            return true;
+        };
+        $('.btn-specificite-enregistrer').addEventListener('click', enregistrerSpecificite);
+        btnSpecificiteOk.addEventListener('click', async () => {
+            if (specificiteDirty && !(await enregistrerSpecificite())) return;
+            const valeur = btnSpecificiteOk.dataset.ok !== '1';
+            const { res } = await post(`${apiSpecificiteOk}?valeur=${valeur ? 1 : 0}`);
+            if (!res.ok) return show('Action impossible.', 'warn');
+            setOk(btnSpecificiteOk, valeur, 'Spécificité validée ✓', 'Spécificité correcte');
+        });
+
         $('.btn-horaire-enregistrer').addEventListener('click', enregistrerHoraire);
         btnHoraireOk.addEventListener('click', async () => {
             if (horaireDirty && !(await enregistrerHoraire())) return;
@@ -247,7 +345,8 @@
             flush: async () => (!nomDirty || await enregistrerNom())
                 && (!adresseDirty || await enregistrerAdresse())
                 && (!horaireDirty || await enregistrerHoraire())
-                && (!produitsDirty || await enregistrerProduits()),
+                && (!produitsDirty || await enregistrerProduits())
+                && (!specificiteDirty || await enregistrerSpecificite()),
         };
     };
 

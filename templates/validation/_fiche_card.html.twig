@@ -1,4 +1,16 @@
-{# Une fiche du groupe : nom, adresse, position, produits, horaires. Les actions sont branchees par validation.js. #}
+{% macro creneau(moment, debut, fin) %}
+<div class="creneau">
+    <select name="moment" aria-label="Moment de la journée">
+        <option value="">Heures précises</option>
+        {% for mo in constant('App\\Entity\\MarcheHoraire::MOMENTS') %}<option value="{{ mo }}" {% if mo == moment %}selected{% endif %}>{{ mo|capitalize }}</option>{% endfor %}
+    </select>
+    <input type="time" name="heureDebut" value="{{ debut }}" aria-label="Heure de début">
+    <span aria-hidden="true">–</span>
+    <input type="time" name="heureFin" value="{{ fin }}" aria-label="Heure de fin (vide : à partir de)">
+    <button type="button" class="secondary btn-creneau-retrait" aria-label="Retirer ce créneau">✕</button>
+</div>
+{% endmacro %}
+{# Une fiche du groupe : nom, adresse, position, produits, specificite, horaires. Les actions sont branchees par validation.js. #}
 <article class="card fiche-card" data-id="{{ m.id }}"
          data-api-adresse="{{ path('api_marche_adresse', {id: m.id}) }}"
          data-api-nom="{{ path('api_marche_nom', {id: m.id}) }}"
@@ -7,6 +19,8 @@
          data-api-horaire-ok="{{ path('api_marche_horaire_ok', {id: m.id}) }}"
          data-api-produits="{{ path('api_marche_produits', {id: m.id}) }}"
          data-api-produits-ok="{{ path('api_marche_produits_ok', {id: m.id}) }}"
+         data-api-specificite="{{ path('api_marche_specificite', {id: m.id}) }}"
+         data-api-specificite-ok="{{ path('api_marche_specificite_ok', {id: m.id}) }}"
          data-api-delier="{{ path('api_marche_delier', {id: m.id}) }}">
     <div class="fiche-card-head">
         <div class="fiche-card-titre">
@@ -74,21 +88,43 @@
                 <button type="button" class="btn-produits-ok" data-ok="{{ m.produitsOk ? '1' : '0' }}"{% if not m.exigeValidationProduits %} hidden{% endif %}>{{ m.produitsOk ? 'Produits validés ✓' : 'Produits corrects' }}</button>
             </div>
 
+            <h2>Spécificité <span class="muted specificite-vide"{% if m.exigeValidationSpecificite %} hidden{% endif %}>(vide, rien à vérifier)</span></h2>
+            <p class="muted">Ce qui qualifie le marché : hebdomadaire, bio, producteurs locaux, saisonnier… Corrigez-la, complétez-la ou ajoutez-en une si elle manque.</p>
+            <form class="specificite-form" autocomplete="off">
+                <div><label for="specificite-{{ m.id }}">Spécificité</label><textarea id="specificite-{{ m.id }}" name="specificite" rows="5" maxlength="255">{{ m.specificite }}</textarea></div>
+            </form>
+            <div class="actions">
+                <button type="button" class="secondary btn-specificite-enregistrer">Enregistrer la spécificité</button>
+                <button type="button" class="btn-specificite-ok" data-ok="{{ m.specificiteOk ? '1' : '0' }}"{% if not m.exigeValidationSpecificite %} hidden{% endif %}>{{ m.specificiteOk ? 'Spécificité validée ✓' : 'Spécificité correcte' }}</button>
+            </div>
+
             <h2>Horaires{% if not m.exigeValidationHoraire %} <span class="muted produits-vides">(pas d'horaire d'origine, rien à vérifier)</span>{% endif %}</h2>
             {% if m.exigeValidationHoraire %}
                 <p class="muted">Vérifiez que les champs ci-dessous reprennent bien l'horaire d'origine, et corrigez-les sinon.</p>
                 <blockquote class="horaire-brut">{{ m.horaireBrut }}</blockquote>
             {% endif %}
             <form class="horaire-form" autocomplete="off">
-                <fieldset class="jours">
-                    <legend>Jours</legend>
-                    {% for jour in constant('App\\Dto\\HoraireDto::JOURS') %}
-                        <label><input type="checkbox" name="jours" value="{{ jour }}" {% if jour in m.jours %}checked{% endif %}> {{ jour|capitalize }}</label>
+                <p class="horaire-resume" aria-live="polite"><span class="muted">Résumé :</span> <strong>{{ m.resumeHoraire ?: 'aucun jour' }}</strong></p>
+                <div class="horaire-avertissements flash warn" role="status" {% if not m.avertissementsHoraire %}hidden{% endif %}>{{ m.avertissementsHoraire|join(' ') }}</div>
+                <div class="jours-tableau">
+                    {% for jour in constant('App\\Entity\\MarcheHoraire::JOURS') %}
+                        {% set creneaux = m.horairesDuJour(jour) %}
+                        {% set incomplet = creneaux and creneaux|filter(c => c.incomplet)|length > 0 %}
+                        <fieldset class="jour-ligne{% if creneaux %} ouvert{% endif %}{% if incomplet %} incomplet{% endif %}" data-jour="{{ jour }}">
+                            <label class="jour-nom"><input type="checkbox" name="ouvert" {% if creneaux %}checked{% endif %}> {{ jour|capitalize }}</label>
+                            <div class="creneaux">
+                                {% for c in creneaux %}
+                                    {{ _self.creneau(c.moment, c.heureDebut ? c.heureDebut|date('H:i'), c.heureFin ? c.heureFin|date('H:i')) }}
+                                {% endfor %}
+                            </div>
+                            <span class="badge-incomplet" {% if not incomplet %}hidden{% endif %}>à compléter</span>
+                            <button type="button" class="secondary btn-creneau-ajout" title="Ajouter un créneau ce jour-là" {% if not creneaux %}hidden{% endif %}>+ créneau</button>
+                            <button type="button" class="secondary btn-creneau-copie" title="Copier ces créneaux sur les autres jours cochés" {% if not creneaux %}hidden{% endif %}>Copier sur les autres jours</button>
+                        </fieldset>
                     {% endfor %}
-                </fieldset>
+                </div>
+                <template class="modele-creneau">{{ _self.creneau(null, null, null) }}</template>
                 <div class="grid-horaire">
-                    <div><label for="heureDebut-{{ m.id }}">Heure de début</label><input type="time" id="heureDebut-{{ m.id }}" name="heureDebut" value="{{ m.heureDebut ? m.heureDebut|date('H:i') }}"></div>
-                    <div><label for="heureFin-{{ m.id }}">Heure de fin</label><input type="time" id="heureFin-{{ m.id }}" name="heureFin" value="{{ m.heureFin ? m.heureFin|date('H:i') }}"></div>
                     <div class="toute-annee"><label><input type="checkbox" name="touteAnnee" {% if m.touteAnnee %}checked{% endif %}> Toute l'année</label></div>
                     {% for champ, libelle in {moisDebut: 'Mois de début', moisFin: 'Mois de fin'} %}
                         {% set valeur = champ == 'moisDebut' ? m.moisDebut : m.moisFin %}

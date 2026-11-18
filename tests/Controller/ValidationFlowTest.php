@@ -377,37 +377,77 @@ final class ValidationFlowTest extends WebTestCase
         self::assertFalse($this->em->find(Marche::class, $id)->isProduitsOk());
     }
 
-    public function testLaFicheAfficheLesProduitsSansLaSpecificite(): void
+    public function testLaFicheAfficheLaSpecificiteEtLaisseLAgentLaCorriger(): void
     {
         $this->agentAvecPerimetre();
         $id = $this->creerFiche();
         $marche = $this->em->find(Marche::class, $id);
         $marche->changeProduits('Volailles et œufs');
-        new \ReflectionProperty(Marche::class, 'specificite')->setValue($marche, 'Le samedi matin');
+        new \ReflectionProperty(Marche::class, 'specificite')->setValue($marche, 'MARCHÉ BIO');
         $this->em->flush();
 
         $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
 
         self::assertSame('Volailles et œufs', $crawler->filter("#produits-$id")->text());
-        self::assertCount(0, $crawler->filter("#specificite-$id"));
-        self::assertCount(1, $crawler->filter('.btn-produits-ok'));
+        self::assertSame('MARCHÉ BIO', $crawler->filter("textarea#specificite-$id")->text());
+        self::assertSame('5', $crawler->filter("textarea#specificite-$id")->attr('rows'));
+        self::assertNull($crawler->filter('.btn-specificite-ok')->attr('hidden'));
 
-        // enregistrer les produits ne touche pas a la specificite, qui peut garder ses horaires
-        $this->post("/api/marche/$id/produits", $this->csrf(), ['produits' => 'Volailles']);
-        self::assertSame([], json_decode($this->client->getResponse()->getContent(), true)['avertissements']);
+        // enregistrer les produits ne touche pas a la specificite
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$id/produits", $csrf, ['produits' => 'Volailles']);
         $this->em->clear();
-        self::assertSame('Le samedi matin', $this->em->find(Marche::class, $id)->getSpecificite());
+        self::assertSame('MARCHÉ BIO', $this->em->find(Marche::class, $id)->getSpecificite());
+
+        // la corriger l'invalide ; trop longue : refusee
+        $this->post("/api/marche/$id/specificite-ok", $csrf);
+        $this->post("/api/marche/$id/specificite", $csrf, ['specificite' => '  Marché bio  ']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        $fiche = $this->em->find(Marche::class, $id);
+        self::assertSame('Marché bio', $fiche->getSpecificite());
+        self::assertFalse($fiche->isSpecificiteOk());
+
+        $this->post("/api/marche/$id/specificite", $csrf, ['specificite' => str_repeat('a', 256)]);
+        self::assertResponseStatusCodeSame(422);
     }
 
-    public function testUneSpecificiteSeuleNExigePasDeValidation(): void
+    public function testUneSpecificiteExigeSaValidationPourTraiterLaFiche(): void
     {
         $this->agentAvecPerimetre();
         $id = $this->creerFiche(actionType: ActionType::Specification);
         new \ReflectionProperty(Marche::class, 'specificite')->setValue($this->em->find(Marche::class, $id), 'Marché bio');
         $this->em->flush();
+        $csrf = $this->csrf();
 
-        $this->post("/api/marche/$id/traite", $this->csrf());
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('spécificité', json_decode($this->client->getResponse()->getContent(), true)['message']);
+
+        $this->post("/api/marche/$id/specificite-ok", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
         self::assertResponseIsSuccessful();
+    }
+
+    public function testAjouterUneSpecificiteAUneFicheSansExigeSaValidation(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $csrf = $this->csrf();
+
+        $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
+        self::assertNotNull($crawler->filter('.btn-specificite-ok')->attr('hidden'));
+
+        $this->post("/api/marche/$id/specificite", $csrf, ['specificite' => 'Marché saisonnier']);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        // l'effacer : plus rien a valider
+        $this->post("/api/marche/$id/specificite", $csrf, ['specificite' => '   ']);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertNull($this->em->find(Marche::class, $id)->getSpecificite());
     }
 
     public function testLaFicheAfficheLHoraireBrutEtLesHorairesExtraits(): void
@@ -418,9 +458,11 @@ final class ValidationFlowTest extends WebTestCase
         $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
 
         self::assertSelectorTextContains('.horaire-brut', 'de Juillet à Août le mercredi de 19h à 23h');
-        self::assertSame(['mercredi'], $crawler->filter('input[name="jours"]:checked')->each(static fn ($n) => $n->attr('value')));
-        self::assertSame('19:00', $crawler->filter("#heureDebut-$id")->attr('value'));
-        self::assertSame('23:00', $crawler->filter("#heureFin-$id")->attr('value'));
+        self::assertSame(['mercredi'], $crawler->filter('.jour-ligne.ouvert')->each(static fn ($n) => $n->attr('data-jour')));
+        self::assertCount(7, $crawler->filter('.jour-ligne'));
+        self::assertSame('19:00', $crawler->filter('.jour-ligne.ouvert input[name="heureDebut"]')->attr('value'));
+        self::assertSame('23:00', $crawler->filter('.jour-ligne.ouvert input[name="heureFin"]')->attr('value'));
+        self::assertSelectorTextContains('.horaire-resume', 'Mer 19h–23h');
         self::assertNull($crawler->filter('input[name="touteAnnee"]')->attr('checked'));
         self::assertSame('juillet', $crawler->filter("#moisDebut-$id option[selected]")->attr('value'));
         self::assertSame('août', $crawler->filter("#moisFin-$id option[selected]")->attr('value'));
@@ -462,14 +504,25 @@ final class ValidationFlowTest extends WebTestCase
         $csrf = $this->csrf();
         $this->post("/api/marche/$id/horaire-ok", $csrf);
 
-        // jours recus dans le desordre, toute l'annee : les mois sont effaces
-        $this->post("/api/marche/$id/horaire", $csrf, ['jours' => ['samedi', 'mercredi'], 'heureDebut' => '08:00', 'heureFin' => '12:30', 'touteAnnee' => true, 'moisDebut' => 'juillet', 'moisFin' => 'août']);
+        // creneaux recus dans le desordre, un horaire different par jour : toute l'annee, les mois sont effaces
+        $this->post("/api/marche/$id/horaire", $csrf, ['creneaux' => [
+            ['jour' => 'samedi', 'heureDebut' => '08:00', 'heureFin' => '12:30'],
+            ['jour' => 'mercredi', 'heureDebut' => '15:00', 'heureFin' => '18:00'],
+            ['jour' => 'mercredi', 'heureDebut' => '08:00', 'heureFin' => '12:00'],
+            ['jour' => 'dimanche', 'moment' => 'matin'],
+            ['jour' => 'dimanche', 'moment' => 'matin'],
+        ], 'touteAnnee' => true, 'moisDebut' => 'juillet', 'moisFin' => 'août']);
         self::assertResponseIsSuccessful();
+        $reponse = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertSame('Mer 8h–12h · Mer 15h–18h · Sam 8h–12h30 · Dim matin', $reponse['resume']);
+        self::assertSame([], $reponse['avertissements']);
         $this->em->clear();
         $fiche = $this->em->find(Marche::class, $id);
-        self::assertSame('mercredi, samedi', $fiche->getJoursTxt());
-        self::assertSame('08:00', $fiche->getHeureDebut()->format('H:i'));
-        self::assertSame('12:30', $fiche->getHeureFin()->format('H:i'));
+        self::assertSame(['mercredi', 'samedi', 'dimanche'], $fiche->getJours());
+        self::assertSame([['mercredi', '08:00'], ['mercredi', '15:00'], ['samedi', '08:00'], ['dimanche', null]], array_map(
+            static fn ($h) => [$h->getNomJour(), $h->getHeureDebut()?->format('H:i')],
+            $fiche->getHoraires(),
+        ));
         self::assertTrue($fiche->isTouteAnnee());
         self::assertNull($fiche->getMoisDebut());
         self::assertNull($fiche->getMoisFin());
@@ -485,8 +538,9 @@ final class ValidationFlowTest extends WebTestCase
         $csrf = $this->csrf();
 
         foreach ([
-            ['jours' => ['lundy'], 'touteAnnee' => true],
-            ['heureDebut' => '25:00', 'touteAnnee' => true],
+            ['creneaux' => [['jour' => 'lundy']], 'touteAnnee' => true],
+            ['creneaux' => [['jour' => 'lundi', 'heureDebut' => '25:00']], 'touteAnnee' => true],
+            ['creneaux' => [['jour' => 'lundi', 'moment' => 'minuit']], 'touteAnnee' => true],
             ['moisDebut' => 'juine', 'touteAnnee' => false],
         ] as $corps) {
             $this->post("/api/marche/$id/horaire", $csrf, $corps);
@@ -494,15 +548,27 @@ final class ValidationFlowTest extends WebTestCase
         }
 
         // marche ponctuel : ni toute l'annee ni mois, accepte
-        $this->post("/api/marche/$id/horaire", $csrf, ['jours' => ['samedi'], 'touteAnnee' => false]);
+        $this->post("/api/marche/$id/horaire", $csrf, ['creneaux' => [['jour' => 'samedi']], 'touteAnnee' => false]);
         self::assertResponseIsSuccessful();
+        // jour sans heure ni moment : accepte, mais signale
+        self::assertStringContainsString('Samedi', json_decode($this->client->getResponse()->getContent(), true)['avertissements'][0]);
+    }
+
+    public function testAvertitSiLaFinNEstPasApresLeDebut(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFicheAvecHoraire();
+
+        $this->post("/api/marche/$id/horaire", $this->csrf(), ['creneaux' => [['jour' => 'lundi', 'heureDebut' => '18:00', 'heureFin' => '09:00']], 'touteAnnee' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('pas après le début', json_decode($this->client->getResponse()->getContent(), true)['avertissements'][0]);
     }
 
     private function creerFicheAvecHoraire(): int
     {
         $id = $this->creerFiche(actionType: ActionType::Specification);
         $marche = $this->em->find(Marche::class, $id);
-        $marche->changeHoraire(['mercredi'], new \DateTimeImmutable('1970-01-01 19:00'), new \DateTimeImmutable('1970-01-01 23:00'), false, 'juillet', 'août');
+        $marche->changeHoraire([['jour' => 3, 'moment' => null, 'debut' => new \DateTimeImmutable('1970-01-01 19:00'), 'fin' => new \DateTimeImmutable('1970-01-01 23:00')]], false, 'juillet', 'août');
         new \ReflectionProperty(Marche::class, 'horaireBrut')->setValue($marche, "Ce marché a lieu de Juillet à Août le mercredi de 19h à 23h");
         $this->em->flush();
 

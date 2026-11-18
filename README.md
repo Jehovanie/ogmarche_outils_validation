@@ -75,6 +75,13 @@ Cela crée `public.user` (les agents) et `ogmarche.marche`, `ogmarche.commune_at
 psql -v ON_ERROR_STOP=1 -f sql/marche.sql
 ```
 
+Puis les horaires par jour (un créneau par jour, avec heures de début et de fin propres à chaque jour),
+lus depuis le texte d'origine `horaire_brut` :
+
+```bash
+php bin/console app:horaire:importer
+```
+
 Ce script copie les lignes non supprimées de `marche_geocode_raw` dans `ogmarche.marche`.
 Il peut être relancé sans danger : il ne fait rien si `marche` contient déjà des fiches.
 

@@ -8,6 +8,7 @@ use App\Dto\LierDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
 use App\Dto\ProduitsDto;
+use App\Dto\SpecificiteDto;
 use App\Entity\Marche;
 use App\Entity\User;
 use App\Service\AdresseValidationService;
@@ -95,9 +96,9 @@ final class AdresseApiController extends AbstractController
     public function changerHoraire(int $id, Request $request, #[MapRequestPayload] HoraireDto $horaire): JsonResponse
     {
         $this->checkCsrf($request);
-        $this->validation->changerHoraire($id, $horaire, $this->agent());
+        $resultat = $this->validation->changerHoraire($id, $horaire, $this->agent());
 
-        return $this->json(['ok' => true]);
+        return $this->json(['ok' => true] + $resultat);
     }
 
     #[Route('/horaire-ok', name: 'api_marche_horaire_ok', methods: ['POST'])]
@@ -116,6 +117,24 @@ final class AdresseApiController extends AbstractController
         $avertissements = $this->validation->changerProduits($id, $produits, $this->agent());
 
         return $this->json(['ok' => true, 'avertissements' => $avertissements]);
+    }
+
+    #[Route('/specificite', name: 'api_marche_specificite', methods: ['POST'])]
+    public function changerSpecificite(int $id, Request $request, #[MapRequestPayload] SpecificiteDto $specificite): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $this->validation->changerSpecificite($id, $specificite, $this->agent());
+
+        return $this->json(['ok' => true]);
+    }
+
+    #[Route('/specificite-ok', name: 'api_marche_specificite_ok', methods: ['POST'])]
+    public function specificiteOk(int $id, Request $request): JsonResponse
+    {
+        $this->checkCsrf($request);
+        $this->validation->definirSpecificiteOk($id, $request->query->getBoolean('valeur', true), $this->agent());
+
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/produits-ok', name: 'api_marche_produits_ok', methods: ['POST'])]

@@ -4,6 +4,10 @@ namespace App\Entity;
 
 use App\Enum\ActionType;
 use App\Repository\MarcheRepository;
+use App\Service\HoraireBrut;
+use App\Service\ResumeHoraire;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -65,15 +69,10 @@ class Marche
     #[ORM\Column(name: 'horaire_brut', length: 255, nullable: true)]
     private ?string $horaireBrut = null;
 
-    /** Jours de marche, dans l'ordre de la semaine : "mardi, samedi". */
-    #[ORM\Column(name: 'jours_txt', length: 100, nullable: true)]
-    private ?string $joursTxt = null;
-
-    #[ORM\Column(name: 'heure_debut', type: Types::TIME_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $heureDebut = null;
-
-    #[ORM\Column(name: 'heure_fin', type: Types::TIME_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $heureFin = null;
+    /** @var Collection<int, MarcheHoraire> creneaux d'ouverture, un ou plusieurs par jour */
+    #[ORM\OneToMany(targetEntity: MarcheHoraire::class, mappedBy: 'marche', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['jour' => 'ASC', 'heureDebut' => 'ASC', 'id' => 'ASC'])]
+    private Collection $horaires;
 
     #[ORM\Column(name: 'toute_annee', nullable: true)]
     private ?bool $touteAnnee = null;
@@ -90,7 +89,7 @@ class Marche
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $produits = null;
 
-    /** Repris de l'import, ni affiche ni valide : il peut contenir des jours et horaires. */
+    /** Libelle libre qui qualifie le marche ("Marché bio", "hebdomadaire"...), valide par l'agent. */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $specificite = null;
 
@@ -130,6 +129,9 @@ class Marche
     #[ORM\Column(name: 'produits_ok', options: ['default' => false])]
     private bool $produitsOk = false;
 
+    #[ORM\Column(name: 'specificite_ok', options: ['default' => false])]
+    private bool $specificiteOk = false;
+
     #[ORM\Column(name: 'horaire_ok', options: ['default' => false])]
     private bool $horaireOk = false;
 
@@ -153,6 +155,11 @@ class Marche
 
     #[ORM\Column(name: 'date_de_validation', type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $dateDeValidation = null;
+
+    public function __construct()
+    {
+        $this->horaires = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -224,25 +231,59 @@ class Marche
         return $this->horaireBrut;
     }
 
-    public function getJoursTxt(): ?string
+    /** @return list<MarcheHoraire> */
+    public function getHoraires(): array
     {
-        return $this->joursTxt;
+        return $this->horaires->toArray();
     }
 
-    /** @return list<string> */
+    /** @return list<string> jours ouverts, dans l'ordre de la semaine */
     public function getJours(): array
     {
-        return null === $this->joursTxt ? [] : array_values(array_filter(array_map('trim', explode(',', $this->joursTxt))));
+        $jours = [];
+        foreach ($this->horaires as $h) {
+            $jours[$h->getJour()] = $h->getNomJour();
+        }
+        ksort($jours);
+
+        return array_values($jours);
     }
 
-    public function getHeureDebut(): ?\DateTimeImmutable
+    /** @return list<MarcheHoraire> les creneaux d'un jour (nom en minuscules) */
+    public function getHorairesDuJour(string $jour): array
     {
-        return $this->heureDebut;
+        return array_values(array_filter($this->getHoraires(), static fn (MarcheHoraire $h): bool => $h->getNomJour() === $jour));
     }
 
-    public function getHeureFin(): ?\DateTimeImmutable
+    public function getResumeHoraire(): string
     {
-        return $this->heureFin;
+        return ResumeHoraire::resumer($this->horaires);
+    }
+
+    /**
+     * Points a verifier sur les horaires, sans jamais bloquer : jour ouvert sans heure ni moment,
+     * fin avant le debut (a moins d'une nocturne), jour du texte d'origine absent du tableau.
+     *
+     * @return list<string>
+     */
+    public function getAvertissementsHoraire(): array
+    {
+        $avertissements = [];
+        foreach ($this->horaires as $h) {
+            if ($h->isIncomplet()) {
+                $avertissements[] = \sprintf('%s : aucune heure ni moment de la journée.', ucfirst($h->getNomJour()));
+            } elseif (null !== $h->getHeureDebut() && null !== $h->getHeureFin() && $h->getHeureFin() <= $h->getHeureDebut()) {
+                $avertissements[] = \sprintf('%s : la fin (%s) n\'est pas après le début (%s).', ucfirst($h->getNomJour()), $h->getHeureFin()->format('H:i'), $h->getHeureDebut()->format('H:i'));
+            }
+        }
+
+        $jours = $this->getJours();
+        $jourBrut = array_unique(array_map(static fn (array $c): string => MarcheHoraire::JOURS[$c['jour']], HoraireBrut::analyser($this->horaireBrut)['creneaux']));
+        foreach (array_diff($jourBrut, $jours) as $manquant) {
+            $avertissements[] = \sprintf('%s figure dans l\'horaire d\'origine mais pas dans le tableau.', ucfirst($manquant));
+        }
+
+        return $avertissements;
     }
 
     public function isTouteAnnee(): ?bool
@@ -345,16 +386,36 @@ class Marche
     }
 
     /**
-     * Corrige les horaires extraits de horaire_brut ; une fois modifies, ils ne sont plus
-     * consideres comme valides. Toute l'annee : les mois n'ont pas de sens et sont effaces.
+     * Remplace les creneaux ; un creneau identique a un autre est ignore. Ne touche ni a la
+     * periode ni a la validation (voir changeHoraire).
      *
-     * @param list<string> $jours
+     * @param list<array{jour: int, moment: ?string, debut: ?\DateTimeImmutable, fin: ?\DateTimeImmutable}> $creneaux
      */
-    public function changeHoraire(array $jours, ?\DateTimeImmutable $heureDebut, ?\DateTimeImmutable $heureFin, bool $touteAnnee, ?string $moisDebut, ?string $moisFin): static
+    public function remplacerCreneaux(array $creneaux): static
     {
-        $this->joursTxt = [] === $jours ? null : implode(', ', $jours);
-        $this->heureDebut = $heureDebut;
-        $this->heureFin = $heureFin;
+        $this->horaires->clear();
+        $vus = [];
+        foreach ($creneaux as $c) {
+            $cle = $c['jour'].'|'.$c['moment'].'|'.$c['debut']?->format('H:i').'|'.$c['fin']?->format('H:i');
+            if (isset($vus[$cle])) {
+                continue;
+            }
+            $vus[$cle] = true;
+            $this->horaires->add(new MarcheHoraire($this, $c['jour'], $c['moment'], $c['debut'], $c['fin']));
+        }
+
+        return $this;
+    }
+
+    /**
+     * Corrige les horaires ; une fois modifies, ils ne sont plus consideres comme valides.
+     * Toute l'annee : les mois n'ont pas de sens et sont effaces.
+     *
+     * @param list<array{jour: int, moment: ?string, debut: ?\DateTimeImmutable, fin: ?\DateTimeImmutable}> $creneaux
+     */
+    public function changeHoraire(array $creneaux, bool $touteAnnee, ?string $moisDebut, ?string $moisFin): static
+    {
+        $this->remplacerCreneaux($creneaux);
         $this->touteAnnee = $touteAnnee;
         $this->moisDebut = $touteAnnee ? null : $moisDebut;
         $this->moisFin = $touteAnnee ? null : $moisFin;
@@ -366,6 +427,33 @@ class Marche
     public function setHoraireOk(bool $horaireOk): static
     {
         $this->horaireOk = $horaireOk;
+
+        return $this;
+    }
+
+    /** Pas de specificite : rien a verifier, tant que l'agent n'en ajoute pas. */
+    public function exigeValidationSpecificite(): bool
+    {
+        return '' !== trim((string) $this->specificite);
+    }
+
+    public function isSpecificiteOk(): bool
+    {
+        return $this->specificiteOk;
+    }
+
+    /** Corrige la specificite ; une fois modifiee, elle n'est plus consideree comme validee. */
+    public function changeSpecificite(?string $specificite): static
+    {
+        $this->specificite = $specificite;
+        $this->specificiteOk = false;
+
+        return $this;
+    }
+
+    public function setSpecificiteOk(bool $specificiteOk): static
+    {
+        $this->specificiteOk = $specificiteOk;
 
         return $this;
     }

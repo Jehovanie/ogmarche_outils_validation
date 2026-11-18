@@ -3,11 +3,14 @@
 namespace App\Service;
 
 use App\Dto\AdresseDto;
+use App\Dto\CreneauDto;
 use App\Dto\HoraireDto;
 use App\Dto\NomDto;
 use App\Dto\PositionDto;
 use App\Dto\ProduitsDto;
+use App\Dto\SpecificiteDto;
 use App\Entity\Marche;
+use App\Entity\MarcheHoraire;
 use App\Entity\User;
 use App\Repository\CommuneAttributionRepository;
 use App\Repository\MarcheRepository;
@@ -91,19 +94,43 @@ final class AdresseValidationService
         return $avertissements;
     }
 
-    public function changerHoraire(int $id, HoraireDto $dto, User $user): void
+    /** @return array{resume: string, avertissements: list<string>} */
+    public function changerHoraire(int $id, HoraireDto $dto, User $user): array
     {
-        // jours dans l'ordre de la semaine, quel que soit l'ordre recu
-        $jours = array_values(array_intersect(HoraireDto::JOURS, $dto->jours));
         $heure = static fn (?string $h): ?\DateTimeImmutable => null === $h || '' === $h ? null : new \DateTimeImmutable('1970-01-01 '.$h);
+        $numero = array_flip(MarcheHoraire::JOURS);
 
-        $this->fiche($id, $user)->changeHoraire($jours, $heure($dto->heureDebut), $heure($dto->heureFin), $dto->touteAnnee, $dto->moisDebut, $dto->moisFin);
+        $creneaux = array_map(static fn (CreneauDto $c): array => [
+            'jour' => $numero[$c->jour],
+            'moment' => '' === $c->moment ? null : $c->moment,
+            'debut' => $heure($c->heureDebut),
+            'fin' => $heure($c->heureFin),
+        ], $dto->creneaux);
+        // dans l'ordre de la semaine, quel que soit l'ordre recu
+        usort($creneaux, static fn (array $a, array $b): int => [$a['jour'], $a['debut']?->format('H:i')] <=> [$b['jour'], $b['debut']?->format('H:i')]);
+
+        $marche = $this->fiche($id, $user);
+        $marche->changeHoraire($creneaux, $dto->touteAnnee, $dto->moisDebut, $dto->moisFin);
         $this->em->flush();
+
+        return ['resume' => $marche->getResumeHoraire(), 'avertissements' => $marche->getAvertissementsHoraire()];
     }
 
     public function definirHoraireOk(int $id, bool $ok, User $user): void
     {
         $this->fiche($id, $user)->setHoraireOk($ok);
+        $this->em->flush();
+    }
+
+    public function changerSpecificite(int $id, SpecificiteDto $dto, User $user): void
+    {
+        $this->fiche($id, $user)->changeSpecificite($this->vide($dto->specificite));
+        $this->em->flush();
+    }
+
+    public function definirSpecificiteOk(int $id, bool $ok, User $user): void
+    {
+        $this->fiche($id, $user)->setSpecificiteOk($ok);
         $this->em->flush();
     }
 
@@ -164,7 +191,7 @@ final class AdresseValidationService
 
     /**
      * Traite la fiche, et tout son groupe de doublons le cas echeant. Chaque fiche doit avoir
-     * ses horaires verifies (s'il y a un horaire_brut) et ses produits valides (s'il y en a) ; une fiche
+     * ses horaires verifies (s'il y a un horaire_brut) et ses produits et sa specificite valides (s'il y en a) ; une fiche
      * EXISTANCE_AVALIDER doit aussi avoir son nom et son adresse, et le groupe une decision garder / ne pas garder
      * des qu'il compte une telle fiche.
      *
@@ -186,6 +213,9 @@ final class AdresseValidationService
             }
             if ($marche->exigeValidationHoraire() && !$marche->isHoraireOk()) {
                 throw new \DomainException(\sprintf('Les horaires doivent être vérifiés avant de traiter la fiche %d.', $marche->getId()));
+            }
+            if ($marche->exigeValidationSpecificite() && !$marche->isSpecificiteOk()) {
+                throw new \DomainException(\sprintf('La spécificité doit être validée avant de traiter la fiche %d.', $marche->getId()));
             }
             if ($marche->exigeValidationProduits() && !$marche->isProduitsOk()) {
                 throw new \DomainException(\sprintf('Les produits doivent être validés avant de traiter la fiche %d.', $marche->getId()));
