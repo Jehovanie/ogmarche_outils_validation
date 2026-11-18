@@ -132,9 +132,10 @@ final class AdminTest extends WebTestCase
         self::assertTrue($this->attributions()->isAttributed((int) $bob->getId(), self::DEP, '99001'));
         self::assertTrue($this->attributions()->isAttributed((int) $bob->getId(), self::DEP, '99002'));
 
-        // la page Agents montre le departement de Bob
-        $this->client->request('GET', '/admin/agents');
-        self::assertSelectorTextContains('table', self::DEP);
+        // la page Agents liste les comptes, sans colonne departements
+        $crawler = $this->client->request('GET', '/admin/agents');
+        self::assertSelectorTextContains('#liste-agents', 'bob@test.local');
+        self::assertStringNotContainsString('Départements', $crawler->filter('#liste-agents thead')->text());
 
         // Bob voit le departement dans son parcours
         $this->client->loginUser($bob);
@@ -142,14 +143,52 @@ final class AdminTest extends WebTestCase
         self::assertSelectorTextContains('table', self::DEP);
     }
 
-    public function testLaPageDepartementsNeContientQueLaRepartition(): void
+    public function testLaRepartitionAutomatiqueEstMasqueeQuandToutEstDejaReparti(): void
     {
+        $this->creerFiche('99001');
+        $alice = $this->creerUser('alice@test.local');
         $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
 
+        // une commune sans agent : la repartition automatique reste disponible
         $crawler = $this->client->request('GET', '/admin/departements');
+        self::assertCount(1, $crawler->filter('#repartition-automatique'));
+        self::assertStringContainsString('Pas encore attribués', $crawler->filter('main')->text());
 
-        self::assertCount(1, $crawler->filter('main section'));
-        self::assertSelectorTextContains('main section h2', 'Répartition automatique');
+        // plus aucune commune sans agent dans la base : le bloc disparait et la page le dit
+        $this->em->persist(new CommuneAttribution(self::DEP, '99001', (int) $alice->getId()));
+        $this->em->flush();
+        $crawler = $this->client->request('GET', '/admin/departements');
+        $toutReparti = str_contains($crawler->filter('main')->text(), 'Tous les départements sont attribués');
+        self::assertSame(!$toutReparti, 1 === $crawler->filter('#repartition-automatique')->count());
+        self::assertCount(1, $crawler->filter('#repartition-actuelle'));
+    }
+
+    public function testLaPageAfficheLaRepartitionDejaFaiteParAgent(): void
+    {
+        $this->creerFiche('99001');
+        $this->creerFiche('99001');
+        $this->creerFiche('99002');
+        $alice = $this->creerUser('alice@test.local');
+        $this->creerUser('bob@test.local');
+        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+
+        // Alice n'a encore rien : elle n'apparait pas dans la repartition actuelle
+        $crawler = $this->client->request('GET', '/admin/departements');
+        self::assertStringNotContainsString('alice@test.local', $crawler->filter('#repartition-actuelle')->count() ? $crawler->filter('#repartition-actuelle')->text() : '');
+
+        $this->em->persist(new CommuneAttribution(self::DEP, '99001', (int) $alice->getId()));
+        $this->em->flush();
+
+        $crawler = $this->client->request('GET', '/admin/departements');
+        self::assertCount(1, $crawler->filter('#repartition-actuelle'));
+        $lignes = $crawler->filter('#repartition-actuelle tbody tr')->reduce(static fn ($tr) => str_contains($tr->text(), 'alice@test.local'));
+        self::assertCount(1, $lignes);
+        // un departement, et seules les 2 fiches de la commune d'Alice comptent ; la 99002 reste non attribuee
+        self::assertSame('1', $lignes->eq(0)->filter('td')->eq(1)->text());
+        self::assertSame('2', $lignes->eq(0)->filter('td')->eq(2)->text());
+        // aucune fiche traitee : progression 0 %, puis fiches restantes
+        self::assertSame('0 %', $lignes->eq(0)->filter('td')->eq(3)->text());
+        self::assertSame('2', $lignes->eq(0)->filter('td')->eq(4)->text());
     }
 
     public function testRepartitionAutomatiqueApercuPuisApplication(): void
@@ -197,6 +236,7 @@ final class AdminTest extends WebTestCase
 
     public function testRepartitionExigeDesDepartementsEtDesAgents(): void
     {
+        $this->creerFiche('99001'); // une commune sans agent : le formulaire est affiche
         $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
 
         $this->client->request('GET', '/admin/departements');

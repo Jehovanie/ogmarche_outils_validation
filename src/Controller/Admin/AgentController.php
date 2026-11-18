@@ -6,7 +6,6 @@ use App\Entity\User;
 use App\Form\AgentType;
 use App\Repository\UserRepository;
 use App\Service\AgentService;
-use App\Service\AttributionService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,17 +20,14 @@ final class AgentController extends AbstractController
     public function __construct(
         private readonly UserRepository $users,
         private readonly AgentService $agents,
-        private readonly AttributionService $attributions,
     ) {
     }
 
     #[Route('', name: 'admin_agents', methods: ['GET'])]
     public function index(): Response
     {
-        $agents = $this->users->findBy([], ['email' => 'ASC']);
-
         return $this->render('admin/agents/index.html.twig', [
-            'agents' => array_map(fn (User $u): array => ['user' => $u, 'departements' => $this->attributions->departementsDe($u)], $agents),
+            'agents' => $this->users->findBy([], ['email' => 'ASC']),
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Entity\CommuneAttribution;
 use App\Entity\User;
 use App\Repository\CommuneAttributionRepository;
 use App\Repository\MarcheRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -19,6 +20,7 @@ final class AttributionService
     public function __construct(
         private readonly MarcheRepository $marches,
         private readonly CommuneAttributionRepository $attributions,
+        private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -27,6 +29,56 @@ final class AttributionService
     public function lignesParDepartement(): array
     {
         return array_column($this->marches->statsDepartements(), 'total', 'codeDep');
+    }
+
+    /**
+     * Repartition actuelle : pour chaque agent qui a des fiches attribuees, ses departements
+     * avec le nombre de lignes (fiches) et ce qu'il reste a traiter. Les agents sont tries par
+     * nombre de lignes decroissant.
+     *
+     * @return list<array{agent: User, departements: list<array{codeDep: string, communes: int, total: int, aTraiter: int}>, total: int, aTraiter: int}>
+     */
+    public function repartitionActuelle(): array
+    {
+        $parAgent = [];
+        foreach ($this->marches->statsAttributions() as $ligne) {
+            $parAgent[$ligne['userId']][] = $ligne;
+        }
+        if ([] === $parAgent) {
+            return [];
+        }
+
+        $repartition = [];
+        foreach ($this->users->findBy(['id' => array_keys($parAgent)]) as $agent) {
+            $deps = $parAgent[(int) $agent->getId()];
+            $repartition[] = [
+                'agent' => $agent,
+                'departements' => $deps,
+                'total' => array_sum(array_column($deps, 'total')),
+                'aTraiter' => array_sum(array_column($deps, 'aTraiter')),
+            ];
+        }
+        usort($repartition, static fn (array $a, array $b): int => [$b['total'], $a['agent']->getLibelle()] <=> [$a['total'], $b['agent']->getLibelle()]);
+
+        return $repartition;
+    }
+
+    /** @return list<string> codes des departements dont au moins une commune (avec fiches) n'a pas d'agent */
+    public function departementsNonAttribues(): array
+    {
+        $attribuees = [];
+        foreach ($this->marches->statsAttributions() as $ligne) {
+            $attribuees[$ligne['codeDep']] = ($attribuees[$ligne['codeDep']] ?? 0) + $ligne['communes'];
+        }
+
+        $nonAttribues = [];
+        foreach ($this->marches->statsDepartements() as $dep) {
+            if (($attribuees[$dep['codeDep']] ?? 0) < $dep['communes']) {
+                $nonAttribues[] = (string) $dep['codeDep'];
+            }
+        }
+
+        return $nonAttribues;
     }
 
     /** @return list<string> codes des departements dont l'agent a au moins une commune */

@@ -49,9 +49,16 @@ final class DepartementController extends AbstractController
             }
         }
 
+        $actuelle = $this->attributions->repartitionActuelle();
+        $nonAttribues = $this->attributions->departementsNonAttribues();
+
         return $this->render('admin/departements/index.html.twig', [
+            // tout est deja attribue : la repartition automatique est masquee
+            'reparti' => [] !== $actuelle && [] === $nonAttribues,
             'repartition' => $repartition,
             'plan' => $plan,
+            'actuelle' => $actuelle,
+            'nonAttribues' => $nonAttribues,
         ]);
     }
 }

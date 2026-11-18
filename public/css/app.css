@@ -29,6 +29,12 @@ main:has(#fiche) { max-width: none; padding-inline: .5rem; }
 #fiche h2 { margin: 1.25rem 0 .5rem; font-size: 1.1rem; }
 .badge { padding: .1rem .55rem; font-size: .8rem; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
 .badge-existance { color: var(--warn); }
+.badge-admin { color: var(--warn); }
+.badge-agent { color: var(--accent); }
+.entete-liste { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin-bottom: .5rem; }
+.entete-liste h2 { margin: 0; }
+.liste-agents .num { text-align: right; }
+.liste-agents a.btn-link { padding: .25rem .7rem; font-size: .9rem; }
 .badge-specification { color: var(--accent); }
 .decision-garde { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .decision-garde .btn-garde[aria-pressed="true"] { background: var(--accent); color: #fff; }
@@ -123,5 +129,11 @@ form ul { margin: .25rem 0 0; padding: 0; list-style: none; color: var(--warn); 
 .cases label, .tout-selectionner { display: flex; align-items: center; gap: .35rem; font-size: .95rem; color: var(--fg); }
 .tout-selectionner { margin-bottom: .4rem; font-weight: 600; }
 .repartition-choix input[type="checkbox"] { width: auto; }
+.repartition-actuelle .num { text-align: right; width: 9rem; font-variant-numeric: tabular-nums; }
+.repartition-actuelle tfoot th { border-top: 2px solid var(--line); }
+.barre-fiches { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.barre-fiches .pourcentage { min-width: 3.2rem; font-variant-numeric: tabular-nums; }
+.barre-fiches .barre { flex: 1 1 8rem; max-width: 18rem; height: .6rem; border-radius: 999px; background: var(--line); overflow: hidden; }
+.barre-fiches .barre > span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
 .apercu { margin-top: 1rem; }
 .apercu h3 { margin: 0 0 .5rem; font-size: 1rem; color: var(--warn); }

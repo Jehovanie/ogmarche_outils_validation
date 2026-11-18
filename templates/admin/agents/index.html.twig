@@ -3,20 +3,23 @@
 {% block body %}
 {% include 'admin/_onglets.html.twig' with {actif: 'agents'} only %}
 
-<div class="actions"><a href="{{ path('admin_agent_nouveau') }}" class="btn-link">Créer un agent</a></div>
-
-<section class="card">
-    <table class="table-admin">
-        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Départements</th><th></th></tr></thead>
+<section class="card" id="liste-agents">
+    <div class="entete-liste">
+        <h2>{{ agents|length }} compte{{ agents|length > 1 ? 's' : '' }}</h2>
+        <a href="{{ path('admin_agent_nouveau') }}" class="btn-link">Créer un agent</a>
+    </div>
+    <table class="table-admin liste-agents">
+        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th></th></tr></thead>
         <tbody>
-        {% for a in agents %}
+        {% for u in agents %}
             <tr>
-                <td>{{ a.user.name ?: '—' }}</td>
-                <td>{{ a.user.email }}</td>
-                <td>{{ a.user.admin ? 'Administrateur' : 'Agent' }}</td>
-                <td>{{ a.departements is empty ? '—' : a.departements|join(', ') }}</td>
-                <td><a href="{{ path('admin_agent_modifier', {id: a.user.id}) }}">Modifier</a></td>
+                <td>{{ u.name ?: '—' }}</td>
+                <td>{{ u.email }}</td>
+                <td><span class="badge {{ u.admin ? 'badge-admin' : 'badge-agent' }}">{{ u.admin ? 'Administrateur' : 'Agent' }}</span></td>
+                <td class="num"><a href="{{ path('admin_agent_modifier', {id: u.id}) }}" class="btn-link secondary">Modifier</a></td>
             </tr>
+        {% else %}
+            <tr><td colspan="4" class="muted">Aucun compte pour le moment.</td></tr>
         {% endfor %}
         </tbody>
     </table>

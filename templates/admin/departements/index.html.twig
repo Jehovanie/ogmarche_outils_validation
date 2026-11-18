@@ -4,7 +4,48 @@
 {% block body %}
 {% include 'admin/_onglets.html.twig' with {actif: 'departements'} only %}
 
-<section class="card">
+{% if actuelle %}
+{% set totalFiches = actuelle|map(r => r.total)|reduce((a, b) => a + b, 0) %}
+{% set totalRestantes = actuelle|map(r => r.aTraiter)|reduce((a, b) => a + b, 0) %}
+<section class="card" id="repartition-actuelle">
+    <h2>Répartition actuelle</h2>
+    <table class="table-admin repartition-actuelle">
+        <thead><tr><th>Agent</th><th class="num">Départements</th><th class="num">Nombre de fiches à valider</th><th>Progression</th><th class="num">Restantes</th></tr></thead>
+        <tbody>
+        {% for r in actuelle %}
+            {% set progression = r.total ? ((r.total - r.aTraiter) * 100 / r.total)|round : 0 %}
+            <tr>
+                <td>{{ r.agent.libelle }}</td>
+                <td class="num">{{ r.departements|length }}</td>
+                <td class="num"><strong>{{ r.total|number_format(0, ',', ' ') }}</strong></td>
+                <td>
+                    <div class="barre-fiches">
+                        <span class="barre" role="img" aria-label="{{ progression }} % traitées"><span style="width: {{ progression }}%"></span></span>
+                        <span class="pourcentage">{{ progression }} %</span>
+                    </div>
+                </td>
+                <td class="num">{{ r.aTraiter|number_format(0, ',', ' ') }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            {% set progressionTotale = totalFiches ? ((totalFiches - totalRestantes) * 100 / totalFiches)|round : 0 %}
+            <tr>
+                <th>Total</th>
+                <th class="num">{{ actuelle|map(r => r.departements|length)|reduce((a, b) => a + b, 0) }}</th>
+                <th class="num">{{ totalFiches|number_format(0, ',', ' ') }}</th>
+                <th>{{ progressionTotale }} %</th>
+                <th class="num">{{ totalRestantes|number_format(0, ',', ' ') }}</th>
+            </tr>
+        </tfoot>
+    </table>
+    <p class="muted">{% if nonAttribues %}Pas encore attribués : {{ nonAttribues|join(', ') }}.{% else %}Tous les départements sont attribués.{% endif %}</p>
+</section>
+{% endif %}
+
+{# deja entierement reparti : la repartition automatique est masquee #}
+{% if not reparti %}
+<section class="card" id="repartition-automatique">
     <h2>Répartition automatique</h2>
     <p class="muted">Cochez les départements et les agents : les départements sont répartis pour que chaque agent ait à peu près le même nombre de lignes (fiches). Un département reste entier et à un seul agent ; s'il était attribué à quelqu'un d'autre, il lui est retiré.</p>
     {{ form_start(repartition) }}
@@ -49,4 +90,5 @@
         </div>
     {{ form_end(repartition) }}
 </section>
+{% endif %}
 {% endblock %}

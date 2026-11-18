@@ -78,6 +78,31 @@ class MarcheRepository extends ServiceEntityRepository
         ], $rows);
     }
 
+    /**
+     * Fiches deja attribuees, par agent et par departement.
+     *
+     * @return list<array{userId: int, codeDep: string, communes: int, total: int, aTraiter: int}>
+     */
+    public function statsAttributions(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('a.userId AS userId, m.codeDep AS codeDep, COUNT(DISTINCT m.codeInsee) AS communes, COUNT(m.id) AS total')
+            ->addSelect('SUM(CASE WHEN m.traite = false THEN 1 ELSE 0 END) AS aTraiter')
+            ->join(CommuneAttribution::class, 'a', 'WITH', 'a.codeDep = m.codeDep AND a.codeInsee = m.codeInsee')
+            ->groupBy('a.userId, m.codeDep')
+            ->orderBy('m.codeDep', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $r): array => [
+            'userId' => (int) $r['userId'],
+            'codeDep' => $r['codeDep'],
+            'communes' => (int) $r['communes'],
+            'total' => (int) $r['total'],
+            'aTraiter' => (int) $r['aTraiter'],
+        ], $rows);
+    }
+
     /** @return list<string> codes INSEE des communes du departement qui ont des fiches */
     public function communesDuDepartement(string $codeDep): array
     {
