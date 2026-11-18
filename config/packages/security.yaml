@@ -46,8 +46,6 @@ security:
 
 when@test:
     security:
-    enable_authenticator_manager: true
-
         password_hashers:
             # Password hashers are resource-intensive by design to ensure security.
             # In tests, it's safe to reduce their cost to improve performance.
