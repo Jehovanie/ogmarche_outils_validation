@@ -206,6 +206,52 @@ final class ValidationFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function testNePasGarderPasseSansAutreValidation(): void
+    {
+        $this->agentAvecPerimetre();
+        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $marche = $this->em->find(Marche::class, $id);
+        $marche->changeProduits('Fruits');
+        new \ReflectionProperty(Marche::class, 'specificite')->setValue($marche, 'Marché bio');
+        new \ReflectionProperty(Marche::class, 'horaireBrut')->setValue($marche, 'Ce marché a lieu toute l\'année le samedi de 8h à 13h');
+        $this->em->flush();
+        $csrf = $this->csrf();
+
+        // garder : nom, adresse, produits, specificite et horaires restent exiges
+        $this->post("/api/marche/$id/garde?valeur=1", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseStatusCodeSame(422);
+
+        // ne pas garder : plus rien d'autre a valider
+        $this->post("/api/marche/$id/garde?valeur=0", $csrf);
+        $this->post("/api/marche/$id/traite", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        $fiche = $this->em->find(Marche::class, $id);
+        self::assertTrue($fiche->isTraite());
+        self::assertFalse($fiche->isGarde());
+        self::assertFalse($fiche->isNomOk());
+    }
+
+    public function testNePasGarderUnGroupeSortToutLeGroupeSansValidation(): void
+    {
+        $this->agentAvecPerimetre();
+        $existence = $this->creerFiche(actionType: ActionType::Existance);
+        $specification = $this->creerFiche(actionType: ActionType::Specification);
+        $this->em->find(Marche::class, $specification)->changeProduits('Miel');
+        $this->em->flush();
+        $csrf = $this->csrf();
+        $this->post("/api/marche/$existence/lier", $csrf, ['ids' => [$specification]]);
+        self::assertResponseIsSuccessful();
+
+        $this->post("/api/marche/$existence/garde?valeur=0", $csrf);
+        $this->post("/api/marche/$existence/traite", $csrf);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertTrue($this->em->find(Marche::class, $existence)->isTraite());
+        self::assertTrue($this->em->find(Marche::class, $specification)->isTraite());
+    }
+
     public function testExistenceNePasseALaSuivanteSansDecision(): void
     {
         $this->agentAvecPerimetre();

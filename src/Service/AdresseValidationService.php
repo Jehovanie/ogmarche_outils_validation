@@ -193,7 +193,7 @@ final class AdresseValidationService
      * Traite la fiche, et tout son groupe de doublons le cas echeant. Chaque fiche doit avoir
      * ses horaires verifies (s'il y a un horaire_brut) et ses produits et sa specificite valides (s'il y en a) ; une fiche
      * EXISTANCE_AVALIDER doit aussi avoir son nom et son adresse, et le groupe une decision garder / ne pas garder
-     * des qu'il compte une telle fiche.
+     * des qu'il compte une telle fiche. Decision "ne pas garder" : aucune de ces validations n'est exigee.
      *
      * @throws \DomainException si une validation exigee manque sur une fiche du groupe
      */
@@ -202,28 +202,17 @@ final class AdresseValidationService
         $groupe = $this->groupe($this->fiche($id, $user));
         foreach ($groupe as $marche) {
             $this->assertDansPerimetre($marche, $user);
-            // nom et adresse ne sont exiges que pour une existence a valider
-            if ($marche->getActionType()->exigeNomEtAdresse()) {
-                if (!$marche->isNomOk()) {
-                    throw new \DomainException(\sprintf('Le nom doit être validé avant de traiter la fiche %d.', $marche->getId()));
-                }
-                if (!$marche->isAdresseOk()) {
-                    throw new \DomainException(\sprintf("L'adresse doit être validée avant de traiter la fiche %d.", $marche->getId()));
-                }
-            }
-            if ($marche->exigeValidationHoraire() && !$marche->isHoraireOk()) {
-                throw new \DomainException(\sprintf('Les horaires doivent être vérifiés avant de traiter la fiche %d.', $marche->getId()));
-            }
-            if ($marche->exigeValidationSpecificite() && !$marche->isSpecificiteOk()) {
-                throw new \DomainException(\sprintf('La spécificité doit être validée avant de traiter la fiche %d.', $marche->getId()));
-            }
-            if ($marche->exigeValidationProduits() && !$marche->isProduitsOk()) {
-                throw new \DomainException(\sprintf('Les produits doivent être validés avant de traiter la fiche %d.', $marche->getId()));
+        }
+
+        $decision = $this->decisionGarde($groupe);
+        // "ne pas garder" : la fiche (et son groupe) sort du circuit, plus rien d'autre a valider
+        if (false !== $decision['garde']) {
+            foreach ($groupe as $marche) {
+                $this->assertValidee($marche);
             }
         }
 
         // une existence a valider (seule ou dans le groupe) exige la decision garder / ne pas garder
-        $decision = $this->decisionGarde($groupe);
         if ($decision['possible'] && null === $decision['garde']) {
             throw new \DomainException('Indiquez si la fiche est à garder ou à ne pas garder avant de la traiter.');
         }
@@ -233,6 +222,29 @@ final class AdresseValidationService
             $marche->marquerTraite((int) $user->getId(), $now);
         }
         $this->em->flush();
+    }
+
+    /** @throws \DomainException si une validation exigee manque sur la fiche */
+    private function assertValidee(Marche $marche): void
+    {
+        // nom et adresse ne sont exiges que pour une existence a valider
+        if ($marche->getActionType()->exigeNomEtAdresse()) {
+            if (!$marche->isNomOk()) {
+                throw new \DomainException(\sprintf('Le nom doit être validé avant de traiter la fiche %d.', $marche->getId()));
+            }
+            if (!$marche->isAdresseOk()) {
+                throw new \DomainException(\sprintf("L'adresse doit être validée avant de traiter la fiche %d.", $marche->getId()));
+            }
+        }
+        if ($marche->exigeValidationHoraire() && !$marche->isHoraireOk()) {
+            throw new \DomainException(\sprintf('Les horaires doivent être vérifiés avant de traiter la fiche %d.', $marche->getId()));
+        }
+        if ($marche->exigeValidationSpecificite() && !$marche->isSpecificiteOk()) {
+            throw new \DomainException(\sprintf('La spécificité doit être validée avant de traiter la fiche %d.', $marche->getId()));
+        }
+        if ($marche->exigeValidationProduits() && !$marche->isProduitsOk()) {
+            throw new \DomainException(\sprintf('Les produits doivent être validés avant de traiter la fiche %d.', $marche->getId()));
+        }
     }
 
     /**

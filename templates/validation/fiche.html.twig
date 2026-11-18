@@ -21,7 +21,7 @@
         {% if decision.possible %}
             <div class="decision-garde" role="group" aria-label="Décision sur la fiche">
                 <button type="button" class="secondary btn-garde" data-valeur="1" aria-pressed="{{ decision.garde is same as(true) ? 'true' : 'false' }}">{{ decision.garde is same as(true) ? 'Gardée ✓' : 'Garder' }}</button>
-                <button type="button" class="secondary btn-garde" data-valeur="0" aria-pressed="{{ decision.garde is same as(false) ? 'true' : 'false' }}">{{ decision.garde is same as(false) ? 'Pas gardée ✓' : 'Ne pas garder' }}</button>
+                <button type="button" class="secondary btn-garde" data-valeur="0" title="La fiche passe directement à la suivante, sans autre validation (nom, adresse, produits, spécificité, horaires)" aria-pressed="{{ decision.garde is same as(false) ? 'true' : 'false' }}">{{ decision.garde is same as(false) ? 'Pas gardée ✓' : 'Ne pas garder' }}</button>
             </div>
         {% endif %}
         <button type="button" id="btn-traite">{{ groupe|length > 1 ? 'Traiter le groupe et passer à la suivante' : 'Traiter et passer à la suivante' }}</button>

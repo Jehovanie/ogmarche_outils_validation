@@ -383,8 +383,12 @@
 
     // ---------------------------------------------------------------- traitement du groupe
     document.getElementById('btn-traite').addEventListener('click', async () => {
-        for (const card of cards) {
-            if (!(await card.flush())) return;
+        // "ne pas garder" : la fiche sort du circuit, on n'enregistre pas les saisies en attente (elles peuvent etre incompletes)
+        const pasGardee = boutonsGarde.some((b) => b.dataset.valeur === '0' && b.getAttribute('aria-pressed') === 'true');
+        if (!pasGardee) {
+            for (const card of cards) {
+                if (!(await card.flush())) return;
+            }
         }
         const { res, data } = await post(apiTraite);
         if (!res.ok) {
