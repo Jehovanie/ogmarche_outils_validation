@@ -23,7 +23,7 @@ security:
             form_login:
                 login_path: app_login
                 check_path: app_login
-                csrf_token_generator: security.csrf.token_manager
+                enable_csrf: true
                 default_target_path: app_dep_choice
             logout:
                 path: app_logout
