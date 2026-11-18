@@ -8,24 +8,34 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Routing\Annotation\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
 
-/** Distribution des departements aux agents par repartition automatique (un departement = un agent). */
-#[IsGranted('ROLE_ADMIN')]
+/**
+ * Distribution des departements aux agents par repartition automatique (un departement = un agent).
+ *
+ * @IsGranted("ROLE_ADMIN")
+ */
 final class DepartementController extends AbstractController
 {
-    public function __construct(private readonly AttributionService $attributions)
+    private AttributionService $attributions;
+
+    public function __construct(AttributionService $attributions)
     {
+        $this->attributions = $attributions;
     }
 
-    #[Route('/admin', name: 'admin_home', methods: ['GET'])]
+    /**
+     * @Route("/admin", name="admin_home", methods={"GET"})
+     */
     public function home(): RedirectResponse
     {
         return $this->redirectToRoute('admin_departements');
     }
 
-    #[Route('/admin/departements', name: 'admin_departements', methods: ['GET', 'POST'])]
+    /**
+     * @Route("/admin/departements", name="admin_departements", methods={"GET", "POST"})
+     */
     public function index(Request $request): Response
     {
         $repartition = $this->createForm(RepartitionType::class, null, [
@@ -36,7 +46,7 @@ final class DepartementController extends AbstractController
 
         if ($repartition->isSubmitted() && $repartition->isValid()) {
             ['departements' => $deps, 'agents' => $agents] = $repartition->getData();
-            $plan = $this->attributions->planifierRepartition(array_values($deps), array_values([...$agents]));
+            $plan = $this->attributions->planifierRepartition(array_values($deps), array_values($agents instanceof \Traversable ? iterator_to_array($agents) : $agents));
 
             if ($repartition->get('appliquer')->isClicked()) {
                 $this->attributions->appliquerRepartition($plan);
@@ -52,6 +62,6 @@ final class DepartementController extends AbstractController
         return $this->render('admin/departements/index.html.twig', [
             'repartition' => $repartition,
             'plan' => $plan,
-        ]);
+        ], new Response(null, $repartition->isSubmitted() && !$repartition->isValid() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 }

@@ -2,11 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-General Symfony conventions (attributes, autowiring, Flex, `#[MapRequestPayload]`, migrations, etc.) are in `AGENTS.md`; follow them. This file covers what is specific to this project. Code, comments, UI and the README are in French; keep it that way.
+General Symfony conventions (autowiring, Flex, migrations, etc.) are in `AGENTS.md`; follow them, **except** the PHP 8 specifics (attributes, `#[MapRequestPayload]`, enums, readonly, promotion, `match`…): see the next section. This file covers what is specific to this project. Code, comments, UI and the README are in French; keep it that way.
 
 ## What this is
 
-Internal tool for agents to validate geocoded market records ("fiches de marché") one at a time: name, address, position, and duplicate grouping. Symfony 8.1 / PHP ≥ 8.4, Doctrine ORM, Twig, PostgreSQL 16. Full setup steps are in `README.md`.
+Internal tool for agents to validate geocoded market records ("fiches de marché") one at a time: name, address, position, and duplicate grouping. Symfony 5.4 / **PHP 7.4**, Doctrine ORM 2, Twig, PostgreSQL 16. Full setup steps are in `README.md`.
+
+## PHP 7.4 target (hosting constraint)
+
+The app must run on PHP 7.4 (Symfony 5.4, `config.platform.php = 7.4.33`). Do not use PHP 8 syntax: no `#[Attributes]` (they are silently ignored as comments), enums, `readonly`, constructor promotion, `match`, named arguments, union types, `?->`, `never`/`mixed`/`static` return types, `throw` expressions, `str_contains` & co. Use instead:
+- `@ORM\…`, `@Route`, `@IsGranted` (sensio) and `@Assert\…` **annotations** in docblocks;
+- `App\Enum\ActionType` is a class of string constants, `Marche::getActionType()` returns a string;
+- request bodies: `App\Http\DtoValueResolver` fills and validates the `App\Dto` classes (public properties) and invalid bodies yield 422 `{ok:false, message, violations:[{propertyPath,title}]}`;
+- commands extend `Command` (`$defaultName`), no `ClockInterface` (use `new \DateTimeImmutable()`);
+- invalid submitted forms are rendered with an explicit 422 response (Symfony 5.4 doesn't do it).
+Composer must resolve with the 7.4 platform (`config.platform`). Every release compatible with PHP 7.4 is EOL and flagged by `composer audit`, so resolution needs `config.audit.block-insecure: false` (to be confirmed by the owner).
 
 ## Commands
 
@@ -45,13 +55,13 @@ PHPUnit is configured with `failOnDeprecation`, `failOnNotice` and `failOnWarnin
 - `ValidationController` renders the HTML pages: `/depChoice` → `/dep/{dep}` → `/validation/{dep}/{insee}`. The last page shows the next untreated, non-`rappel` record (lowest id first), or the one given by `?fiche=<id>`.
 - `AdresseApiController` exposes the XHR endpoints under `/api/marche/{id}/…` (nom, nom-ok, adresse, adresse-ok, position, traite, lier, delier, candidats).
   - Each POST checks the CSRF token `marche` from the `X-CSRF-Token` header.
-  - JSON bodies are bound to readonly DTOs in `src/Dto` through `#[MapRequestPayload]`; validation failures return 422 with `violations`.
+  - JSON bodies are bound to DTOs in `src/Dto` through `App\Http\DtoValueResolver`; validation failures return 422 with `violations`.
   - Business-rule failures are thrown as `\DomainException` and mapped to 422 `{ok:false, message}`.
 - `public/js/validation.js` is plain JS (jQuery/DataTables are loaded from CDN on the fiche page). It reads API URLs and the CSRF token from `data-*` attributes on `#fiche` and on each card in `templates/validation/_fiche_card.html.twig`, which are generated with `path()`. Add new endpoints the same way; don't hardcode URLs.
 
 **Validation state on `Marche`.**
 - `nomOk` and `adresseOk` are set explicitly by the agent. Editing the name or the address (`changeDenomination` / `changeAdresse`) resets the matching flag to false.
-- `marquerTraite` requires both flags on **every record of the group**, and stamps `validatedBy` and `dateDeValidation` using the injected `ClockInterface`.
+- `marquerTraite` requires both flags on **every record of the group**, and stamps `validatedBy` and `dateDeValidation` using `new \DateTimeImmutable()`.
 - **Décision garder / ne pas garder** (`Marche::garde`, nullable): one decision per fiche or group, set from the page header (`/api/marche/{id}/garde`) and stored on the `EXISTANCE_AVALIDER` fiches of the group (specifications follow them). `marquerTraite` refuses to proceed while a group with an existence has no decision.
 - A postal code / département mismatch (`CodePostalDepartement`) is only a warning, never a blocker.
 

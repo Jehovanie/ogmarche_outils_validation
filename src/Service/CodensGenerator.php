@@ -11,8 +11,11 @@ use Doctrine\DBAL\Connection;
  */
 class CodensGenerator
 {
-    public function __construct(private readonly Connection $connection)
+    private Connection $connection;
+
+    public function __construct(Connection $connection)
     {
+        $this->connection = $connection;
     }
 
     public function suivant(string $codeDep): string

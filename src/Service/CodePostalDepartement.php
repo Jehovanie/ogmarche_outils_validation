@@ -11,12 +11,14 @@ final class CodePostalDepartement
 {
     public static function correspond(string $codePostal, string $codeDep): bool
     {
-        $prefixe = match (true) {
-            \in_array($codeDep, ['2A', '2B'], true) => '20',
-            str_starts_with($codeDep, '97') => '97',
-            default => $codeDep,
-        };
+        if (\in_array($codeDep, ['2A', '2B'], true)) {
+            $prefixe = '20';
+        } elseif (0 === strpos($codeDep, '97')) {
+            $prefixe = '97';
+        } else {
+            $prefixe = $codeDep;
+        }
 
-        return str_starts_with($codePostal, $prefixe);
+        return 0 === strpos($codePostal, $prefixe);
     }
 }

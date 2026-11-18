@@ -29,7 +29,7 @@ final class RepartitionType extends AbstractType
                 'choice_label' => static fn (string $dep): string => \sprintf('%s (%d)', $dep, $lignes[$dep] ?? 0),
                 'multiple' => true,
                 'expanded' => true,
-                'constraints' => [new Assert\Count(min: 1, minMessage: 'Sélectionnez au moins un département.')],
+                'constraints' => [new Assert\Count(['min' => 1, 'minMessage' => 'Sélectionnez au moins un département.'])],
             ])
             ->add('agents', EntityType::class, [
                 'label' => 'Agents',
@@ -38,7 +38,7 @@ final class RepartitionType extends AbstractType
                 'query_builder' => static fn (EntityRepository $r) => $r->createQueryBuilder('u')->orderBy('u.email'),
                 'multiple' => true,
                 'expanded' => true,
-                'constraints' => [new Assert\Count(min: 1, minMessage: 'Sélectionnez au moins un agent.')],
+                'constraints' => [new Assert\Count(['min' => 1, 'minMessage' => 'Sélectionnez au moins un agent.'])],
             ])
             ->add('apercu', SubmitType::class, ['label' => 'Aperçu de la répartition', 'attr' => ['class' => 'secondary']])
             ->add('appliquer', SubmitType::class, ['label' => 'Répartition automatique']);

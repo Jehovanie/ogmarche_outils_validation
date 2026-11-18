@@ -12,7 +12,6 @@ use App\Entity\User;
 use App\Repository\CommuneAttributionRepository;
 use App\Repository\MarcheRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -25,13 +24,17 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  */
 final class AdresseValidationService
 {
-    public function __construct(
-        private readonly MarcheRepository $marches,
-        private readonly CommuneAttributionRepository $attributions,
-        private readonly EntityManagerInterface $em,
-        private readonly ClockInterface $clock,
-        private readonly CodensGenerator $codens,
-    ) {
+    private MarcheRepository $marches;
+    private CommuneAttributionRepository $attributions;
+    private EntityManagerInterface $em;
+    private CodensGenerator $codens;
+
+    public function __construct(MarcheRepository $marches, CommuneAttributionRepository $attributions, EntityManagerInterface $em, CodensGenerator $codens)
+    {
+        $this->marches = $marches;
+        $this->attributions = $attributions;
+        $this->em = $em;
+        $this->codens = $codens;
     }
 
     /**
@@ -123,7 +126,7 @@ final class AdresseValidationService
     public function definirGarde(int $id, ?bool $garde, User $user): void
     {
         $groupe = $this->groupe($this->fiche($id, $user));
-        $existences = array_filter($groupe, static fn (Marche $m): bool => $m->getActionType()->exigeNomEtAdresse());
+        $existences = array_filter($groupe, static fn (Marche $m): bool => $m->exigeNomEtAdresse());
         if ([] === $existences) {
             throw new \DomainException("La décision garder / ne pas garder ne concerne que les fiches dont l'existence est à valider.");
         }
@@ -144,7 +147,7 @@ final class AdresseValidationService
      */
     public function decisionGarde(array $groupe): array
     {
-        $existences = array_values(array_filter($groupe, static fn (Marche $m): bool => $m->getActionType()->exigeNomEtAdresse()));
+        $existences = array_values(array_filter($groupe, static fn (Marche $m): bool => $m->exigeNomEtAdresse()));
         $valeurs = array_unique(array_map(static fn (Marche $m): ?bool => $m->isGarde(), $existences), \SORT_REGULAR);
 
         return ['possible' => [] !== $existences, 'garde' => 1 === \count($valeurs) ? $valeurs[0] : null];
@@ -176,7 +179,7 @@ final class AdresseValidationService
         foreach ($groupe as $marche) {
             $this->assertDansPerimetre($marche, $user);
             // nom et adresse ne sont exiges que pour une existence a valider
-            if ($marche->getActionType()->exigeNomEtAdresse()) {
+            if ($marche->exigeNomEtAdresse()) {
                 if (!$marche->isNomOk()) {
                     throw new \DomainException(\sprintf('Le nom doit être validé avant de traiter la fiche %d.', $marche->getId()));
                 }
@@ -198,7 +201,7 @@ final class AdresseValidationService
             throw new \DomainException('Indiquez si la fiche est à garder ou à ne pas garder avant de la traiter.');
         }
 
-        $now = $this->clock->now();
+        $now = new \DateTimeImmutable();
         foreach ($groupe as $marche) {
             $marche->marquerTraite((int) $user->getId(), $now);
         }
@@ -326,7 +329,10 @@ final class AdresseValidationService
 
     private function fiche(int $id, User $user): Marche
     {
-        $marche = $this->marches->find($id) ?? throw new NotFoundHttpException('Fiche introuvable.');
+        $marche = $this->marches->find($id);
+        if (null === $marche) {
+            throw new NotFoundHttpException('Fiche introuvable.');
+        }
         $this->assertDansPerimetre($marche, $user);
 
         return $marche;

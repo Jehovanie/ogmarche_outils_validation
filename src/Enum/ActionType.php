@@ -4,24 +4,27 @@ namespace App\Enum;
 
 /**
  * Ce que l'agent doit valider sur une fiche (colonne action_type du CSV).
- *  - SPECIFICATION_AVALIDER : seulement les produits ;
- *  - EXISTANCE_AVALIDER : l'existence du marche, donc nom, adresse et produits.
+ *  - SPECIFICATION : seulement les produits ;
+ *  - EXISTANCE : l'existence du marche, donc nom, adresse et produits.
+ *
+ * Constantes de classe (PHP 7.4 : pas d'enum).
  */
-enum ActionType: string
+final class ActionType
 {
-    case Specification = 'SPECIFICATION_AVALIDER';
-    case Existance = 'EXISTANCE_AVALIDER';
+    public const SPECIFICATION = 'SPECIFICATION_AVALIDER';
+    public const EXISTANCE = 'EXISTANCE_AVALIDER';
 
-    public function exigeNomEtAdresse(): bool
+    public static function exigeNomEtAdresse(string $type): bool
     {
-        return self::Existance === $this;
+        return self::EXISTANCE === $type;
     }
 
-    public function libelle(): string
+    public static function libelle(string $type): string
     {
-        return match ($this) {
-            self::Specification => 'Spécification à valider',
-            self::Existance => 'Existence à valider',
-        };
+        return self::EXISTANCE === $type ? 'Existence à valider' : 'Spécification à valider';
+    }
+
+    private function __construct()
+    {
     }
 }

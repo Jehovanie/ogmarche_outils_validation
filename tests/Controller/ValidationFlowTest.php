@@ -162,7 +162,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testSpecificationAValiderNExigeQueLesProduits(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $id = $this->creerFicheType(ActionType::SPECIFICATION);
         $this->em->find(Marche::class, $id)->changeProduits('Fruits et légumes');
         $this->em->flush();
         $csrf = $this->csrf();
@@ -186,7 +186,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testExistenceAValiderExigeNomAdresseEtProduits(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $id = $this->creerFicheType(ActionType::EXISTANCE);
         $csrf = $this->csrf();
 
         $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
@@ -209,7 +209,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testExistenceNePasseALaSuivanteSansDecision(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $id = $this->creerFicheType(ActionType::EXISTANCE);
         $csrf = $this->csrf();
         foreach (['nom-ok', 'adresse-ok', 'produits-ok'] as $action) {
             $this->post("/api/marche/$id/$action", $csrf);
@@ -234,7 +234,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testDecisionGarderNePasGarderSurUneExistence(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Existance);
+        $id = $this->creerFicheType(ActionType::EXISTANCE);
         $csrf = $this->csrf();
 
         // les boutons sont dans l'en-tete, a cote de "Traiter", et pas dans la fiche
@@ -265,7 +265,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testDecisionGardeRefuseeSurUneSpecification(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $id = $this->creerFicheType(ActionType::SPECIFICATION);
         $csrf = $this->csrf();
 
         $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
@@ -280,8 +280,8 @@ final class ValidationFlowTest extends WebTestCase
     public function testDecisionGardeDUnGroupeSuitLExistence(): void
     {
         $this->agentAvecPerimetre();
-        $exist = $this->creerFiche('Exist', actionType: ActionType::Existance);
-        $spec = $this->creerFiche('Spec', actionType: ActionType::Specification);
+        $exist = $this->creerFicheType(ActionType::EXISTANCE, 'Exist');
+        $spec = $this->creerFicheType(ActionType::SPECIFICATION, 'Spec');
         $csrf = $this->csrf();
         $this->post("/api/marche/$exist/lier", $csrf, ['ids' => [$spec]]);
         self::assertResponseIsSuccessful();
@@ -302,8 +302,8 @@ final class ValidationFlowTest extends WebTestCase
     public function testUnGroupeMixteAppliqueLaRegleDeChaqueFiche(): void
     {
         $this->agentAvecPerimetre();
-        $spec = $this->creerFiche('Spec', actionType: ActionType::Specification);
-        $exist = $this->creerFiche('Exist', actionType: ActionType::Existance);
+        $spec = $this->creerFicheType(ActionType::SPECIFICATION, 'Spec');
+        $exist = $this->creerFicheType(ActionType::EXISTANCE, 'Exist');
         $csrf = $this->csrf();
         $this->post("/api/marche/$spec/lier", $csrf, ['ids' => [$exist]]);
 
@@ -329,8 +329,8 @@ final class ValidationFlowTest extends WebTestCase
     public function testProduitsVidesNeBloquentPasLeTraitement(): void
     {
         $this->agentAvecPerimetre();
-        $vide = $this->creerFiche('Vide', actionType: ActionType::Specification);
-        $rempli = $this->creerFiche('Rempli', actionType: ActionType::Specification);
+        $vide = $this->creerFicheType(ActionType::SPECIFICATION, 'Vide');
+        $rempli = $this->creerFicheType(ActionType::SPECIFICATION, 'Rempli');
         $this->em->find(Marche::class, $rempli)->changeProduits('Fromages');
         $this->em->flush();
         $csrf = $this->csrf();
@@ -352,7 +352,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testAjouterDesProduitsAUneFicheVideExigeLeurValidation(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $id = $this->creerFicheType(ActionType::SPECIFICATION);
         $csrf = $this->csrf();
 
         $this->post("/api/marche/$id/produits", $csrf, ['produits' => 'Miel']);
@@ -383,7 +383,7 @@ final class ValidationFlowTest extends WebTestCase
         $id = $this->creerFiche();
         $marche = $this->em->find(Marche::class, $id);
         $marche->changeProduits('Volailles et œufs');
-        new \ReflectionProperty(Marche::class, 'specificite')->setValue($marche, 'Le samedi matin');
+        $this->setProp($marche, 'specificite', 'Le samedi matin');
         $this->em->flush();
 
         $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
@@ -402,8 +402,8 @@ final class ValidationFlowTest extends WebTestCase
     public function testUneSpecificiteSeuleNExigePasDeValidation(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Specification);
-        new \ReflectionProperty(Marche::class, 'specificite')->setValue($this->em->find(Marche::class, $id), 'Marché bio');
+        $id = $this->creerFicheType(ActionType::SPECIFICATION);
+        $this->setProp($this->em->find(Marche::class, $id), 'specificite', 'Marché bio');
         $this->em->flush();
 
         $this->post("/api/marche/$id/traite", $this->csrf());
@@ -445,7 +445,7 @@ final class ValidationFlowTest extends WebTestCase
     public function testSansHoraireBrutRienAVerifier(): void
     {
         $this->agentAvecPerimetre();
-        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $id = $this->creerFicheType(ActionType::SPECIFICATION);
 
         $crawler = $this->client->request('GET', '/validation/'.self::DEP.'/'.self::INSEE);
         self::assertCount(0, $crawler->filter('.horaire-brut'));
@@ -500,10 +500,10 @@ final class ValidationFlowTest extends WebTestCase
 
     private function creerFicheAvecHoraire(): int
     {
-        $id = $this->creerFiche(actionType: ActionType::Specification);
+        $id = $this->creerFicheType(ActionType::SPECIFICATION);
         $marche = $this->em->find(Marche::class, $id);
         $marche->changeHoraire(['mercredi'], new \DateTimeImmutable('1970-01-01 19:00'), new \DateTimeImmutable('1970-01-01 23:00'), false, 'juillet', 'août');
-        new \ReflectionProperty(Marche::class, 'horaireBrut')->setValue($marche, "Ce marché a lieu de Juillet à Août le mercredi de 19h à 23h");
+        $this->setProp($marche, 'horaireBrut', "Ce marché a lieu de Juillet à Août le mercredi de 19h à 23h");
         $this->em->flush();
 
         return $id;
@@ -797,17 +797,28 @@ final class ValidationFlowTest extends WebTestCase
         return $user;
     }
 
-    private function creerFiche(string $denomination = 'Marché de test', string $dep = self::DEP, string $insee = self::INSEE, ?string $codePostal = null, string $commune = 'Testville', ActionType $actionType = ActionType::Existance): int
+    private function creerFicheType(string $actionType, string $denomination = 'Marché de test'): int
+    {
+        return $this->creerFiche($denomination, self::DEP, self::INSEE, null, 'Testville', $actionType);
+    }
+
+    private function creerFiche(string $denomination = 'Marché de test', string $dep = self::DEP, string $insee = self::INSEE, ?string $codePostal = null, string $commune = 'Testville', string $actionType = ActionType::EXISTANCE): int
     {
         $marche = new Marche();
-        $rc = new \ReflectionClass(Marche::class);
         foreach (['codeDep' => $dep, 'codeInsee' => $insee, 'commune' => $commune, 'codePostal' => $codePostal, 'denomination' => $denomination, 'actionType' => $actionType] as $prop => $valeur) {
-            $rc->getProperty($prop)->setValue($marche, $valeur);
+            $this->setProp($marche, $prop, $valeur);
         }
         $this->em->persist($marche);
         $this->em->flush();
 
         return (int) $marche->getId();
+    }
+
+    private function setProp(Marche $marche, string $prop, $valeur): void
+    {
+        $rp = new \ReflectionProperty(Marche::class, $prop);
+        $rp->setAccessible(true);
+        $rp->setValue($marche, $valeur);
     }
 
     /** Jeton CSRF de la session courante, lu dans l'en-tete des pages. */

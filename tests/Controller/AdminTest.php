@@ -46,7 +46,7 @@ final class AdminTest extends WebTestCase
 
     public function testLAdminCreeUnAgentQuiPeutSeConnecter(): void
     {
-        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+        $this->client->loginUser($this->creerUser('admin@test.local', true));
 
         $this->client->request('GET', '/admin/agents/nouveau');
         $this->client->submitForm('Enregistrer', [
@@ -75,7 +75,7 @@ final class AdminTest extends WebTestCase
     public function testCreationRefuseeEmailDejaPrisOuMotDePasseTropCourt(): void
     {
         $this->creerUser('pris@test.local');
-        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+        $this->client->loginUser($this->creerUser('admin@test.local', true));
 
         $this->client->request('GET', '/admin/agents/nouveau');
         $this->client->submitForm('Enregistrer', ['agent[email]' => 'pris@test.local', 'agent[plainPassword]' => 'court']);
@@ -89,7 +89,7 @@ final class AdminTest extends WebTestCase
     {
         $agent = $this->creerUser('agent@test.local');
         $ancienHash = $agent->getPassword();
-        $admin = $this->creerUser('admin@test.local', admin: true);
+        $admin = $this->creerUser('admin@test.local', true);
         $this->client->loginUser($admin);
 
         $this->client->request('GET', "/admin/agents/{$agent->getId()}/modifier");
@@ -116,7 +116,7 @@ final class AdminTest extends WebTestCase
         // une commune deja a Alice
         $this->em->persist(new CommuneAttribution(self::DEP, '99001', (int) $alice->getId()));
         $this->em->flush();
-        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+        $this->client->loginUser($this->creerUser('admin@test.local', true));
 
         // un seul departement et un seul agent coches : le departement va entier a Bob
         $crawler = $this->client->request('GET', '/admin/departements');
@@ -144,7 +144,7 @@ final class AdminTest extends WebTestCase
 
     public function testLaPageDepartementsNeContientQueLaRepartition(): void
     {
-        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+        $this->client->loginUser($this->creerUser('admin@test.local', true));
 
         $crawler = $this->client->request('GET', '/admin/departements');
 
@@ -162,7 +162,7 @@ final class AdminTest extends WebTestCase
         }
         $alice = $this->creerUser('alice@test.local');
         $bob = $this->creerUser('bob@test.local');
-        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+        $this->client->loginUser($this->creerUser('admin@test.local', true));
 
         $crawler = $this->client->request('GET', '/admin/departements');
         self::assertSelectorExists('[data-tout-selectionner="#repartition-departements"]');
@@ -197,7 +197,7 @@ final class AdminTest extends WebTestCase
 
     public function testRepartitionExigeDesDepartementsEtDesAgents(): void
     {
-        $this->client->loginUser($this->creerUser('admin@test.local', admin: true));
+        $this->client->loginUser($this->creerUser('admin@test.local', true));
 
         $this->client->request('GET', '/admin/departements');
         $this->client->submitForm('Aperçu de la répartition');
@@ -231,10 +231,17 @@ final class AdminTest extends WebTestCase
     {
         $marche = new Marche();
         foreach (['codeDep' => $dep, 'codeInsee' => $insee, 'commune' => 'Testville'] as $prop => $valeur) {
-            new \ReflectionProperty(Marche::class, $prop)->setValue($marche, $valeur);
+            $this->setProp($marche, $prop, $valeur);
         }
         $this->em->persist($marche);
         $this->em->flush();
+    }
+
+    private function setProp(Marche $marche, string $prop, $valeur): void
+    {
+        $rp = new \ReflectionProperty(Marche::class, $prop);
+        $rp->setAccessible(true);
+        $rp->setValue($marche, $valeur);
     }
 
     private function users(): UserRepository

@@ -9,10 +9,13 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 /** Enregistrement des comptes (public.user), communs a tous les outils de validation. */
 final class AgentService
 {
-    public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly UserPasswordHasherInterface $hasher,
-    ) {
+    private EntityManagerInterface $em;
+    private UserPasswordHasherInterface $hasher;
+
+    public function __construct(EntityManagerInterface $em, UserPasswordHasherInterface $hasher)
+    {
+        $this->em = $em;
+        $this->hasher = $hasher;
     }
 
     /** Cree ou met a jour le compte ; un mot de passe vide garde l'ancien. */

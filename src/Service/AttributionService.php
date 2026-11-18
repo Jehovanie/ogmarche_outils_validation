@@ -16,11 +16,15 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class AttributionService
 {
-    public function __construct(
-        private readonly MarcheRepository $marches,
-        private readonly CommuneAttributionRepository $attributions,
-        private readonly EntityManagerInterface $em,
-    ) {
+    private MarcheRepository $marches;
+    private CommuneAttributionRepository $attributions;
+    private EntityManagerInterface $em;
+
+    public function __construct(MarcheRepository $marches, CommuneAttributionRepository $attributions, EntityManagerInterface $em)
+    {
+        $this->marches = $marches;
+        $this->attributions = $attributions;
+        $this->em = $em;
     }
 
     /** @return array<string, int> code de chaque departement qui a des fiches => nombre de lignes (fiches) */
@@ -54,7 +58,7 @@ final class AttributionService
     {
         $lignes = array_filter(
             $this->lignesParDepartement(),
-            static fn (int|string $dep): bool => \in_array((string) $dep, $codesDep, true),
+            static fn ($dep): bool => \in_array((string) $dep, $codesDep, true),
             \ARRAY_FILTER_USE_KEY,
         );
 

@@ -11,7 +11,7 @@
     <div class="fiche-card-head">
         <div class="fiche-card-titre">
             {% if groupe|length > 1 %}<span class="muted">Groupe {{ m.codens }}</span>{% endif %}
-            <span class="badge badge-{{ m.actionType.exigeNomEtAdresse ? 'existance' : 'specification' }}">{{ m.actionType.libelle }}</span>
+            <span class="badge badge-{{ m.exigeNomEtAdresse ? 'existance' : 'specification' }}">{{ m.actionTypeLibelle }}</span>
             {% if groupe|length > 1 %}<button type="button" class="secondary small btn-delier">Délier ce doublon</button>{% endif %}
         </div>
         <div class="outils-verif" aria-label="Recherches externes">
@@ -25,7 +25,7 @@
     {# deux colonnes cote a cote sur grand ecran : nom, adresse, position | produits, horaires #}
     <div class="fiche-colonnes">
         <div class="fiche-colonne">
-            {% set facultatif = not m.actionType.exigeNomEtAdresse %}
+            {% set facultatif = not m.exigeNomEtAdresse %}
             <h2>Nom de l'établissement{% if facultatif %} <span class="muted facultatif">(déjà validé)</span>{% endif %}</h2>
             <form class="nom-form" autocomplete="off">
                 <label for="denomination-{{ m.id }}">Nom actuel</label>

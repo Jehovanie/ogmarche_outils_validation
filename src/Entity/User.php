@@ -12,32 +12,44 @@ use Symfony\Component\Security\Core\User\UserInterface;
 /**
  * Agent ou administrateur de l'outil. Table du schema "public" : elle est
  * independante des donnees du marche (schema "ogmarche").
+ *
+ * @ORM\Entity(repositoryClass="App\Repository\UserRepository")
+ * @ORM\Table(name="user", schema="public")
+ * @UniqueEntity(fields={"email"}, message="Un compte existe déjà avec cet email.")
  */
-#[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: 'user', schema: 'public')]
-#[UniqueEntity(fields: ['email'], message: 'Un compte existe déjà avec cet email.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
+    /**
+     * @ORM\Id
+     * @ORM\GeneratedValue
+     * @ORM\Column
+     */
     private ?int $id = null;
 
-    #[ORM\Column(length: 180, unique: true)]
-    #[Assert\NotBlank(message: "L'email est obligatoire.")]
-    #[Assert\Email(message: "L'email n'est pas valide.")]
-    #[Assert\Length(max: 180)]
+    /**
+     * @ORM\Column(length=180, unique=true)
+     * @Assert\NotBlank(message="L'email est obligatoire.")
+     * @Assert\Email(message="L'email n'est pas valide.")
+     * @Assert\Length(max=180)
+     */
     private string $email = '';
 
-    /** @var list<string> */
-    #[ORM\Column(type: 'json')]
+    /**
+     * @var list<string>
+     *
+     * @ORM\Column(type="json")
+     */
     private array $roles = [];
 
-    #[ORM\Column]
+    /**
+     * @ORM\Column
+     */
     private string $password = '';
 
-    #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Length(max: 255)]
+    /**
+     * @ORM\Column(length=255, nullable=true)
+     * @Assert\Length(max=255)
+     */
     private ?string $name = null;
 
     public function getId(): ?int
@@ -50,7 +62,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->email;
     }
 
-    public function setEmail(string $email): static
+    public function setEmail(string $email): self
     {
         $this->email = $email;
 
@@ -64,7 +76,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getRoles(): array
     {
-        return array_values(array_unique([...$this->roles, 'ROLE_USER']));
+        return array_values(array_unique(array_merge($this->roles, ['ROLE_USER'])));
     }
 
     public function isAdmin(): bool
@@ -72,7 +84,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return \in_array('ROLE_ADMIN', $this->roles, true);
     }
 
-    public function setAdmin(bool $admin): static
+    public function setAdmin(bool $admin): self
     {
         $this->roles = $admin ? ['ROLE_ADMIN'] : [];
 
@@ -86,7 +98,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /** @param list<string> $roles */
-    public function setRoles(array $roles): static
+    public function setRoles(array $roles): self
     {
         $this->roles = $roles;
 
@@ -98,7 +110,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->password;
     }
 
-    public function setPassword(string $password): static
+    public function setPassword(string $password): self
     {
         $this->password = $password;
 
@@ -110,11 +122,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->name;
     }
 
-    public function setName(?string $name): static
+    public function setName(?string $name): self
     {
         $this->name = $name;
 
         return $this;
+    }
+
+    /** Exige par UserInterface (Symfony 5.4) ; l'identifiant est l'email. */
+    public function getUsername(): string
+    {
+        return $this->email;
+    }
+
+    /** Exige par UserInterface (Symfony 5.4) ; le hacheur moderne gere son propre sel. */
+    public function getSalt(): ?string
+    {
+        return null;
     }
 
     public function eraseCredentials(): void

@@ -129,13 +129,15 @@ class MarcheRepository extends ServiceEntityRepository
      */
     public function candidatsDoublon(Marche $marche, int $userId, string $champ, int $limite = 2000): array
     {
-        [$valeur, $colonne] = match ($champ) {
-            'cp' => [$marche->getCodePostal(), 'm.codePostal'],
-            'commune' => [$marche->getCommune(), 'm.commune'],
-            'denomination' => null !== $marche->getDenominationNormalise() && '' !== trim($marche->getDenominationNormalise())
-                ? [$marche->getDenominationNormalise(), 'm.denominationNormalise']
-                : [$marche->getDenomination(), 'm.denomination'],
-        };
+        if ('cp' === $champ) {
+            [$valeur, $colonne] = [$marche->getCodePostal(), 'm.codePostal'];
+        } elseif ('commune' === $champ) {
+            [$valeur, $colonne] = [$marche->getCommune(), 'm.commune'];
+        } elseif (null !== $marche->getDenominationNormalise() && '' !== trim($marche->getDenominationNormalise())) {
+            [$valeur, $colonne] = [$marche->getDenominationNormalise(), 'm.denominationNormalise'];
+        } else {
+            [$valeur, $colonne] = [$marche->getDenomination(), 'm.denomination'];
+        }
         if (null === $valeur || '' === trim($valeur)) {
             return [];
         }

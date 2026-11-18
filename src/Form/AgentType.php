@@ -28,10 +28,10 @@ final class AgentType extends AbstractType
                 'mapped' => false,
                 'required' => $options['creation'],
                 'attr' => ['autocomplete' => 'new-password'],
-                'constraints' => [
-                    ...($options['creation'] ? [new Assert\NotBlank(message: 'Le mot de passe est obligatoire.')] : []),
-                    new Assert\Length(min: 8, max: 4096, minMessage: 'Le mot de passe doit faire au moins {{ limit }} caractères.'),
-                ],
+                'constraints' => array_merge(
+                    $options['creation'] ? [new Assert\NotBlank(['message' => 'Le mot de passe est obligatoire.'])] : [],
+                    [new Assert\Length(['min' => 8, 'max' => 4096, 'minMessage' => 'Le mot de passe doit faire au moins {{ limit }} caractères.'])]
+                ),
             ])
             ->add('admin', CheckboxType::class, [
                 'label' => 'Administrateur (gère les agents et la distribution des départements)',

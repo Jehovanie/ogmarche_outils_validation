@@ -4,11 +4,11 @@ Outil interne pour valider, fiche par fiche, les données de marchés géocodée
 (`data/data_geocoder_final.csv`) : nom de l'établissement, adresse, position, et gestion des doublons.
 Un agent se voit attribuer des communes, les parcourt une à une et traite les fiches.
 
-Symfony 8.1, Doctrine ORM, Twig, PostgreSQL.
+Symfony 5.4, Doctrine ORM, Twig, PostgreSQL.
 
 ## Prérequis
 
-- PHP **8.4 ou plus**, avec les extensions `pdo_pgsql`, `ctype`, `iconv`, `intl`, `mbstring`
+- PHP **7.4** (cible de l'hébergement ; pas de syntaxe PHP 8), avec les extensions `pdo_pgsql`, `ctype`, `iconv`, `intl`, `mbstring`
 - [Composer](https://getcomposer.org/)
 - PostgreSQL 16 (le client `psql` doit être disponible)
 - Le fichier de données `data/data_geocoder_final.csv` (séparateur `;`, UTF-8). Il n'est pas versionné

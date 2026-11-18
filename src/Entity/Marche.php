@@ -2,156 +2,236 @@
 
 namespace App\Entity;
 
-use App\Enum\ActionType;
 use App\Repository\MarcheRepository;
+use App\Enum\ActionType;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Fiche de marche a valider. Alimentee depuis ogmarche.marche_geocode_raw (voir
  * sql/marche.sql) ; raw_row_id garde le lien vers la ligne brute d'origine.
+ *
+ * @ORM\Entity(repositoryClass="App\Repository\MarcheRepository")
+ * @ORM\Table(name="marche", schema="ogmarche", indexes={
+ *     @ORM\Index(name="idx_marche_dep_insee", columns={"code_dep", "code_insee"}),
+ *     @ORM\Index(name="idx_marche_codens", columns={"codens"})
+ * })
  */
-#[ORM\Entity(repositoryClass: MarcheRepository::class)]
-#[ORM\Table(name: 'marche', schema: 'ogmarche')]
-#[ORM\Index(name: 'idx_marche_dep_insee', columns: ['code_dep', 'code_insee'])]
-#[ORM\Index(name: 'idx_marche_codens', columns: ['codens'])]
 class Marche
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
+    /**
+     * @ORM\Id
+     * @ORM\GeneratedValue
+     * @ORM\Column
+     */
     private ?int $id = null;
 
-    #[ORM\Column(name: 'raw_row_id', type: Types::BIGINT, nullable: true)]
+    /**
+     * @ORM\Column(name="raw_row_id", type="bigint", nullable=true)
+     */
     private ?string $rawRowId = null;
 
-    #[ORM\Column(name: 'unique_id', length: 40, nullable: true)]
+    /**
+     * @ORM\Column(name="unique_id", length=40, nullable=true)
+     */
     private ?string $uniqueId = null;
 
-    #[ORM\Column(name: 'id_marche', nullable: true)]
+    /**
+     * @ORM\Column(name="id_marche", nullable=true)
+     */
     private ?int $idMarche = null;
 
-    #[ORM\Column(name: 'denomination_f', length: 100, nullable: true)]
+    /**
+     * @ORM\Column(name="denomination_f", length=100, nullable=true)
+     */
     private ?string $denomination = null;
 
-    #[ORM\Column(name: 'denomination_normalise', length: 100, nullable: true)]
+    /**
+     * @ORM\Column(name="denomination_normalise", length=100, nullable=true)
+     */
     private ?string $denominationNormalise = null;
 
-    #[ORM\Column(name: 'code_dep', length: 3)]
+    /**
+     * @ORM\Column(name="code_dep", length=3)
+     */
     private string $codeDep = '';
 
     // --- adresse (champs valides par l'agent) ---
 
-    #[ORM\Column(name: 'num_voie', length: 10, nullable: true)]
+    /**
+     * @ORM\Column(name="num_voie", length=10, nullable=true)
+     */
     private ?string $numVoie = null;
 
-    #[ORM\Column(name: 'type_voie', length: 20, nullable: true)]
+    /**
+     * @ORM\Column(name="type_voie", length=20, nullable=true)
+     */
     private ?string $typeVoie = null;
 
-    #[ORM\Column(name: 'nom_voie', length: 100, nullable: true)]
+    /**
+     * @ORM\Column(name="nom_voie", length=100, nullable=true)
+     */
     private ?string $nomVoie = null;
 
-    #[ORM\Column(name: 'code_postal', length: 5, nullable: true)]
+    /**
+     * @ORM\Column(name="code_postal", length=5, nullable=true)
+     */
     private ?string $codePostal = null;
 
-    #[ORM\Column(length: 100)]
+    /**
+     * @ORM\Column(length=100)
+     */
     private string $commune = '';
 
-    #[ORM\Column(name: 'code_insee', length: 5, nullable: true)]
+    /**
+     * @ORM\Column(name="code_insee", length=5, nullable=true)
+     */
     private ?string $codeInsee = null;
 
     // --- horaires : horaire_brut (texte d'origine, lecture seule) et ce qui en a ete extrait ---
 
-    #[ORM\Column(name: 'horaire_brut', length: 255, nullable: true)]
+    /**
+     * @ORM\Column(name="horaire_brut", length=255, nullable=true)
+     */
     private ?string $horaireBrut = null;
 
-    /** Jours de marche, dans l'ordre de la semaine : "mardi, samedi". */
-    #[ORM\Column(name: 'jours_txt', length: 100, nullable: true)]
+    /**
+     * Jours de marche, dans l'ordre de la semaine : "mardi, samedi".
+     *
+     * @ORM\Column(name="jours_txt", length=100, nullable=true)
+     */
     private ?string $joursTxt = null;
 
-    #[ORM\Column(name: 'heure_debut', type: Types::TIME_IMMUTABLE, nullable: true)]
+    /**
+     * @ORM\Column(name="heure_debut", type="time_immutable", nullable=true)
+     */
     private ?\DateTimeImmutable $heureDebut = null;
 
-    #[ORM\Column(name: 'heure_fin', type: Types::TIME_IMMUTABLE, nullable: true)]
+    /**
+     * @ORM\Column(name="heure_fin", type="time_immutable", nullable=true)
+     */
     private ?\DateTimeImmutable $heureFin = null;
 
-    #[ORM\Column(name: 'toute_annee', nullable: true)]
+    /**
+     * @ORM\Column(name="toute_annee", nullable=true)
+     */
     private ?bool $touteAnnee = null;
 
-    /** Mois en minuscules ("juillet"), seulement si le marche n'a pas lieu toute l'annee. */
-    #[ORM\Column(name: 'mois_debut', length: 10, nullable: true)]
+    /**
+     * Mois en minuscules ("juillet"), seulement si le marche n'a pas lieu toute l'annee.
+     *
+     * @ORM\Column(name="mois_debut", length=10, nullable=true)
+     */
     private ?string $moisDebut = null;
 
-    #[ORM\Column(name: 'mois_fin', length: 10, nullable: true)]
+    /**
+     * @ORM\Column(name="mois_fin", length=10, nullable=true)
+     */
     private ?string $moisFin = null;
 
     // --- produits (sans mention de jour ni d'horaire) ---
 
-    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    /**
+     * @ORM\Column(type="text", nullable=true)
+     */
     private ?string $produits = null;
 
-    /** Repris de l'import, ni affiche ni valide : il peut contenir des jours et horaires. */
-    #[ORM\Column(length: 255, nullable: true)]
+    /**
+     * Repris de l'import, ni affiche ni valide : il peut contenir des jours et horaires.
+     *
+     * @ORM\Column(length=255, nullable=true)
+     */
     private ?string $specificite = null;
 
     // --- geocodage (lecture seule pour l'agent) ---
 
-    #[ORM\Column(nullable: true)]
+    /**
+     * @ORM\Column(nullable=true)
+     */
     private ?float $longitude = null;
 
-    #[ORM\Column(nullable: true)]
+    /**
+     * @ORM\Column(nullable=true)
+     */
     private ?float $latitude = null;
 
-    #[ORM\Column(name: 'precision', length: 20, nullable: true)]
+    /**
+     * @ORM\Column(name="precision", length=20, nullable=true)
+     */
     private ?string $precision = null;
 
-    #[ORM\Column(name: 'id_ban', length: 20, nullable: true)]
+    /**
+     * @ORM\Column(name="id_ban", length=20, nullable=true)
+     */
     private ?string $idBan = null;
 
     /**
      * Cle du groupe de doublons ("id_<dep>_<n>"), partagee par les fiches liees ;
      * null tant que la fiche n'est liee a aucune autre.
+     *
+     * @ORM\Column(length=30, nullable=true)
      */
-    #[ORM\Column(length: 30, nullable: true)]
     private ?string $codens = null;
 
     // --- etat de validation ---
 
-    /** Ce que l'agent doit valider : produits seuls, ou existence complete (voir ActionType). */
-    #[ORM\Column(name: 'action_type', length: 30, enumType: ActionType::class, options: ['default' => 'EXISTANCE_AVALIDER'])]
-    private ActionType $actionType = ActionType::Existance;
+    /**
+     * Ce que l'agent doit valider : produits seuls, ou existence complete (voir ActionType).
+     *
+     * @ORM\Column(name="action_type", length=30, options={"default": "EXISTANCE_AVALIDER"})
+     */
+    private string $actionType = ActionType::EXISTANCE;
 
-    #[ORM\Column(name: 'nom_ok', options: ['default' => false])]
+    /**
+     * @ORM\Column(name="nom_ok", options={"default": false})
+     */
     private bool $nomOk = false;
 
-    #[ORM\Column(name: 'adresse_ok', options: ['default' => false])]
+    /**
+     * @ORM\Column(name="adresse_ok", options={"default": false})
+     */
     private bool $adresseOk = false;
 
-    #[ORM\Column(name: 'produits_ok', options: ['default' => false])]
+    /**
+     * @ORM\Column(name="produits_ok", options={"default": false})
+     */
     private bool $produitsOk = false;
 
-    #[ORM\Column(name: 'horaire_ok', options: ['default' => false])]
+    /**
+     * @ORM\Column(name="horaire_ok", options={"default": false})
+     */
     private bool $horaireOk = false;
 
     /**
      * Decision de l'agent sur une fiche "existence a valider" : true = garder, false = ne pas garder,
      * null = pas encore decide. Sans objet pour une specification a valider.
+     *
+     * @ORM\Column(name="garde", nullable=true)
      */
-    #[ORM\Column(name: 'garde', nullable: true)]
     private ?bool $garde = null;
 
-    /** Fiche entierement traitee par l'agent. */
-    #[ORM\Column(options: ['default' => false])]
+    /**
+     * Fiche entierement traitee par l'agent.
+     *
+     * @ORM\Column(options={"default": false})
+     */
     private bool $traite = false;
 
-    /** Fiche mise de cote pour y revenir plus tard. */
-    #[ORM\Column(options: ['default' => false])]
+    /**
+     * Fiche mise de cote pour y revenir plus tard.
+     *
+     * @ORM\Column(options={"default": false})
+     */
     private bool $rappel = false;
 
-    #[ORM\Column(name: 'validated_by', nullable: true)]
+    /**
+     * @ORM\Column(name="validated_by", nullable=true)
+     */
     private ?int $validatedBy = null;
 
-    #[ORM\Column(name: 'date_de_validation', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    /**
+     * @ORM\Column(name="date_de_validation", type="datetime_immutable", nullable=true)
+     */
     private ?\DateTimeImmutable $dateDeValidation = null;
 
     public function getId(): ?int
@@ -295,7 +375,7 @@ class Marche
         return $this->codens;
     }
 
-    public function setCodens(?string $codens): static
+    public function setCodens(?string $codens): self
     {
         $this->codens = $codens;
 
@@ -308,7 +388,7 @@ class Marche
     }
 
     /** Corrige le nom ; un nom modifie n'est plus considere comme valide. */
-    public function changeDenomination(string $denomination): static
+    public function changeDenomination(string $denomination): self
     {
         $this->denomination = $denomination;
         $this->nomOk = false;
@@ -316,7 +396,7 @@ class Marche
         return $this;
     }
 
-    public function setNomOk(bool $nomOk): static
+    public function setNomOk(bool $nomOk): self
     {
         $this->nomOk = $nomOk;
 
@@ -328,9 +408,20 @@ class Marche
         return $this->adresseOk;
     }
 
-    public function getActionType(): ActionType
+    /** Une des constantes de ActionType. */
+    public function getActionType(): string
     {
         return $this->actionType;
+    }
+
+    public function exigeNomEtAdresse(): bool
+    {
+        return ActionType::exigeNomEtAdresse($this->actionType);
+    }
+
+    public function getActionTypeLibelle(): string
+    {
+        return ActionType::libelle($this->actionType);
     }
 
     /** Pas d'horaire_brut : rien a comparer, donc rien a verifier. */
@@ -350,7 +441,7 @@ class Marche
      *
      * @param list<string> $jours
      */
-    public function changeHoraire(array $jours, ?\DateTimeImmutable $heureDebut, ?\DateTimeImmutable $heureFin, bool $touteAnnee, ?string $moisDebut, ?string $moisFin): static
+    public function changeHoraire(array $jours, ?\DateTimeImmutable $heureDebut, ?\DateTimeImmutable $heureFin, bool $touteAnnee, ?string $moisDebut, ?string $moisFin): self
     {
         $this->joursTxt = [] === $jours ? null : implode(', ', $jours);
         $this->heureDebut = $heureDebut;
@@ -363,7 +454,7 @@ class Marche
         return $this;
     }
 
-    public function setHoraireOk(bool $horaireOk): static
+    public function setHoraireOk(bool $horaireOk): self
     {
         $this->horaireOk = $horaireOk;
 
@@ -382,7 +473,7 @@ class Marche
     }
 
     /** Corrige les produits ; une fois modifies, ils ne sont plus consideres comme valides. */
-    public function changeProduits(?string $produits): static
+    public function changeProduits(?string $produits): self
     {
         $this->produits = $produits;
         $this->produitsOk = false;
@@ -390,7 +481,7 @@ class Marche
         return $this;
     }
 
-    public function setProduitsOk(bool $produitsOk): static
+    public function setProduitsOk(bool $produitsOk): self
     {
         $this->produitsOk = $produitsOk;
 
@@ -402,7 +493,7 @@ class Marche
         return $this->garde;
     }
 
-    public function setGarde(?bool $garde): static
+    public function setGarde(?bool $garde): self
     {
         $this->garde = $garde;
 
@@ -430,7 +521,7 @@ class Marche
     }
 
     /** Corrige l'adresse ; une adresse modifiee n'est plus consideree comme validee. */
-    public function changeAdresse(?string $numVoie, ?string $typeVoie, ?string $nomVoie, ?string $codePostal, string $commune): static
+    public function changeAdresse(?string $numVoie, ?string $typeVoie, ?string $nomVoie, ?string $codePostal, string $commune): self
     {
         $this->numVoie = $numVoie;
         $this->typeVoie = $typeVoie;
@@ -442,7 +533,7 @@ class Marche
         return $this;
     }
 
-    public function changePosition(float $latitude, float $longitude): static
+    public function changePosition(float $latitude, float $longitude): self
     {
         $this->latitude = $latitude;
         $this->longitude = $longitude;
@@ -450,21 +541,21 @@ class Marche
         return $this;
     }
 
-    public function setAdresseOk(bool $adresseOk): static
+    public function setAdresseOk(bool $adresseOk): self
     {
         $this->adresseOk = $adresseOk;
 
         return $this;
     }
 
-    public function setRappel(bool $rappel): static
+    public function setRappel(bool $rappel): self
     {
         $this->rappel = $rappel;
 
         return $this;
     }
 
-    public function marquerTraite(int $userId, \DateTimeImmutable $at): static
+    public function marquerTraite(int $userId, \DateTimeImmutable $at): self
     {
         $this->traite = true;
         $this->rappel = false;
