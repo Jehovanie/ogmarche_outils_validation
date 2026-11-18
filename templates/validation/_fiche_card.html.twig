@@ -32,11 +32,10 @@
             <button type="button" class="secondary small btn-google">Recherche Google</button>
             <button type="button" class="secondary small btn-google-ia" title="Mode IA de Google, à partir du nom et de l'adresse de la fiche">Recherche Google IA</button>
             <button type="button" class="secondary small btn-maps">Google Maps</button>
-            <button type="button" class="secondary small btn-images" title="Photos du marché : enseigne, étals, panneau">Google Images</button>
         </div>
     </div>
 
-    {# deux colonnes cote a cote sur grand ecran : nom, adresse, position | produits, horaires #}
+    {# trois colonnes cote a cote sur grand ecran : nom, adresse, position | produits, specificite | horaires #}
     <div class="fiche-colonnes">
         <div class="fiche-colonne">
             {% set facultatif = not m.actionType.exigeNomEtAdresse %}
@@ -98,6 +97,9 @@
                 <button type="button" class="btn-specificite-ok" data-ok="{{ m.specificiteOk ? '1' : '0' }}"{% if not m.exigeValidationSpecificite %} hidden{% endif %}>{{ m.specificiteOk ? 'Spécificité validée ✓' : 'Spécificité correcte' }}</button>
             </div>
 
+        </div>
+
+        <div class="fiche-colonne">
             <h2>Horaires{% if not m.exigeValidationHoraire %} <span class="muted produits-vides">(pas d'horaire d'origine, rien à vérifier)</span>{% endif %}</h2>
             {% if m.exigeValidationHoraire %}
                 <p class="muted">Vérifiez que les champs ci-dessous reprennent bien l'horaire d'origine, et corrigez-les sinon.</p>

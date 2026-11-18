@@ -69,14 +69,21 @@ select:disabled { opacity: .5; }
 /* Fiches du groupe l'une sous l'autre, chacune sur toute la largeur */
 .fiche-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem; }
 .fiche-grid .card { margin-bottom: 0; }
-/* dans une fiche : nom, adresse, position | produits, horaires ; une seule colonne si la fiche est etroite */
+/* dans une fiche : nom, adresse, position | produits, specificite | horaires ; une seule colonne si la fiche est etroite */
 .fiche-card { container-type: inline-size; }
 .fiche-colonnes { display: grid; grid-template-columns: 1fr; align-items: start; }
 .fiche-colonne > h2:first-of-type { margin-top: 1rem; }
+/* 2 colonnes (horaires en dessous, pleine largeur), puis 3 colonnes si la fiche est assez large */
 @container (min-width: 50rem) {
     .fiche-colonnes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .fiche-colonne:first-child { padding-right: 2rem; }
-    .fiche-colonne + .fiche-colonne { padding-left: 2rem; border-left: 1px solid var(--line); }
+    .fiche-colonne:nth-child(1) { padding-right: 2rem; }
+    .fiche-colonne:nth-child(2) { padding-left: 2rem; border-left: 1px solid var(--line); }
+    .fiche-colonne:nth-child(3) { grid-column: 1 / -1; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+}
+@container (min-width: 75rem) {
+    .fiche-colonnes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .fiche-colonne:nth-child(2) { padding-right: 2rem; }
+    .fiche-colonne:nth-child(3) { grid-column: auto; margin-top: 0; padding: 0 0 0 2rem; border-top: 0; border-left: 1px solid var(--line); }
 }
 /* adresse sur deux lignes dans une carte a demi-largeur */
 .grid-adresse { display: grid; gap: .75rem; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; }

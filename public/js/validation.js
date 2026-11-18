@@ -326,8 +326,6 @@
         // mode IA de Google (udm=50)
         $('.btn-google-ia').addEventListener('click', () => ouvrir('https://www.google.com/search?udm=50&q='));
         $('.btn-maps').addEventListener('click', () => ouvrir('https://www.google.com/maps?q='));
-        // photos : enseigne, etals, panneau du marche
-        $('.btn-images').addEventListener('click', () => ouvrir('https://www.google.com/search?tbm=isch&q='));
 
         // dissocier ce doublon
         const btnDelier = $('.btn-delier');

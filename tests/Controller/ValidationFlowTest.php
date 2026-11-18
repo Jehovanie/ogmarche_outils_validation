@@ -800,10 +800,10 @@ final class ValidationFlowTest extends WebTestCase
         self::assertStringContainsString('(A)', $crawler->filter('#btn-search-denomination')->text());
         self::assertCount(1, $crawler->filter('#doublons-table'));
         // outils de verification de la fiche : recherches Google uniquement
-        foreach (['.btn-google', '.btn-maps', '.btn-images'] as $bouton) {
+        foreach (['.btn-google', '.btn-google-ia', '.btn-maps'] as $bouton) {
             self::assertCount(1, $crawler->filter($bouton), $bouton);
         }
-        foreach (['.btn-mairie', '.btn-streetview', '.btn-osm', '.btn-ban'] as $bouton) {
+        foreach (['.btn-images', '.btn-mairie', '.btn-streetview', '.btn-osm', '.btn-ban'] as $bouton) {
             self::assertCount(0, $crawler->filter($bouton), $bouton);
         }
     }
