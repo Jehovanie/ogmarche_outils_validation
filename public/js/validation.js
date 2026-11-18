@@ -324,7 +324,17 @@
         const ouvrir = (base, texte = requete()) => aller(`${base}${encodeURIComponent(texte)}`);
         $('.btn-google').addEventListener('click', () => ouvrir('https://www.google.com/search?q='));
         // mode IA de Google (udm=50)
-        $('.btn-google-ia').addEventListener('click', () => ouvrir('https://www.google.com/search?udm=50&q='));
+        // question complete plutot que mots-cles : l'IA doit renseigner ce que l'agent valide (horaires, produits, specificites)
+        const questionIA = () => {
+            const nom = (nomForm.elements.denomination.value || '').trim();
+            const lieu = requete().slice(nom.length).trim();
+            return `Marché « ${nom || 'sans nom'} »${lieu ? `, ${lieu}` : ''}. `
+                + "Donne-moi : 1) ses horaires d'ouverture, jour par jour, avec l'heure de début et de fin de chaque jour "
+                + "(et la période de l'année s'il est saisonnier) ; 2) les produits qu'on y vend ; "
+                + '3) ses spécificités (hebdomadaire, bio, producteurs locaux, nocturne, saisonnier…). '
+                + "Réponds en français, sois précis, indique tes sources et dis clairement ce que tu n'as pas trouvé.";
+        };
+        $('.btn-google-ia').addEventListener('click', () => ouvrir('https://www.google.com/search?udm=50&q=', questionIA()));
         $('.btn-maps').addEventListener('click', () => ouvrir('https://www.google.com/maps?q='));
 
         // dissocier ce doublon
