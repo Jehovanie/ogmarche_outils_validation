@@ -16,6 +16,7 @@
         </div>
         <div class="outils-verif" aria-label="Recherches externes">
             <button type="button" class="secondary small btn-google">Recherche Google</button>
+            <button type="button" class="secondary small btn-google-ia" title="Mode IA de Google, à partir du nom et de l'adresse de la fiche">Recherche Google IA</button>
             <button type="button" class="secondary small btn-maps">Google Maps</button>
             <button type="button" class="secondary small btn-images" title="Photos du marché : enseigne, étals, panneau">Google Images</button>
         </div>
@@ -68,6 +69,7 @@
             </form>
             <div class="mentions-temps flash warn" role="status" hidden></div>
             <div class="actions">
+                <button type="button" class="secondary btn-coller-produits">Coller depuis le presse-papier</button>
                 <button type="button" class="secondary btn-produits-enregistrer">Enregistrer les produits</button>
                 <button type="button" class="btn-produits-ok" data-ok="{{ m.produitsOk ? '1' : '0' }}"{% if not m.exigeValidationProduits %} hidden{% endif %}>{{ m.produitsOk ? 'Produits validés ✓' : 'Produits corrects' }}</button>
             </div>

@@ -169,6 +169,24 @@
             setOk(btnProduitsOk, valeur, 'Produits validés ✓', 'Produits corrects');
         });
 
+        // produits : remplace le texte par le contenu du presse-papier (non enregistre tant que l'agent ne le fait pas)
+        $('.btn-coller-produits').addEventListener('click', async () => {
+            if (!navigator.clipboard || !navigator.clipboard.readText) {
+                return show("La lecture du presse-papier n'est pas disponible sur ce navigateur.", 'warn');
+            }
+            try {
+                const texte = (await navigator.clipboard.readText()).trim();
+                if (texte === '') return show('Le presse-papier est vide.', 'warn');
+                const champ = produitsForm.elements.produits;
+                champ.value = texte;
+                // declenche le suivi des modifications, la detection des mentions de temps, etc.
+                produitsForm.dispatchEvent(new Event('input', { bubbles: true }));
+                champ.focus();
+            } catch {
+                show('Impossible de lire le presse-papier, vérifiez les autorisations du navigateur.', 'warn');
+            }
+        });
+
         // position
         $('.btn-coller-position').addEventListener('click', async () => {
             if (!navigator.clipboard || !navigator.clipboard.readText) {
@@ -207,6 +225,8 @@
         const aller = (url) => window.open(url, '_blank', 'noopener');
         const ouvrir = (base, texte = requete()) => aller(`${base}${encodeURIComponent(texte)}`);
         $('.btn-google').addEventListener('click', () => ouvrir('https://www.google.com/search?q='));
+        // mode IA de Google (udm=50)
+        $('.btn-google-ia').addEventListener('click', () => ouvrir('https://www.google.com/search?udm=50&q='));
         $('.btn-maps').addEventListener('click', () => ouvrir('https://www.google.com/maps?q='));
         // photos : enseigne, etals, panneau du marche
         $('.btn-images').addEventListener('click', () => ouvrir('https://www.google.com/search?tbm=isch&q='));
