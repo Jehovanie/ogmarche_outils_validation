@@ -16,6 +16,8 @@ symfony serve -d                                   # or: php -S localhost:8000 -
 php bin/console doctrine:migrations:migrate --no-interaction
 php bin/console app:user:create <email> <password> [--name=...] [--admin]   # first admin; agents are then created in /admin
 php bin/console app:attribution:assign <email> <dep>   # gives the whole département to the agent (same as /admin)
+php bin/console app:csv:charger [file]               # loads data/data_geocoder_final.csv into ogmarche.marche_geocode_raw by header name (creates the table via sql/schema.sql if missing; refuses a non-empty table)
+php bin/console app:marche:importer                 # runs sql/marche.sql through the app connection (no psql needed): raw -> ogmarche.marche, no-op if marche is not empty
 php bin/console app:horaire:importer [--force]      # fills ogmarche.marche_horaire from horaire_brut (--force: re-reads fiches whose horaires are not yet verified)
 
 php bin/phpunit                                    # all tests
@@ -30,9 +32,9 @@ PHPUnit is configured with `failOnDeprecation`, `failOnNotice` and `failOnWarnin
 - The connection comes from **lowercase env vars** (`database_host`, `database_port`, `database_name`, `database_user`, `database_password`), not `DATABASE_URL`. Override them in `.env.local`.
 - **Schema rule**: tables independent of markets go in `public` (accounts: `public.user`); anything tied to markets goes in `ogmarche`, including `commune_attribution`. A future validation tool for farms will get its own schema (e.g. `ogferme`) with its own attribution table and share `public.user`. Put new tables in the right schema.
 - Data pipeline, partly outside Doctrine:
-  1. `sql/schema.sql` creates `ogmarche.marche_geocode_raw`, which is loaded from `data/data_geocoder_final.csv` (git-ignored) with `\copy`.
+  1. `sql/schema.sql` creates `ogmarche.marche_geocode_raw`, which is loaded from `data/data_geocoder_final.csv` (git-ignored) by `app:csv:charger` (or psql `\copy` **with the column list in CSV header order** — the table's column order differs from the CSV's).
   2. Doctrine migrations create `user`, `ogmarche.marche`, `ogmarche.commune_attribution` and `ogmarche.codens`.
-  3. `sql/marche.sql` copies raw rows into `ogmarche.marche` (it does nothing if `marche` already has rows).
+  3. `sql/marche.sql` (or `app:marche:importer`, which runs it over the app's DBAL connection) copies raw rows into `ogmarche.marche` (it does nothing if `marche` already has rows).
   4. `app:horaire:importer` parses `horaire_brut` (`HoraireBrut`) into `ogmarche.marche_horaire`.
 - `doctrine.dbal.schema_filter` in `config/packages/doctrine.yaml` restricts Doctrine to its own tables, so `marche_geocode_raw` stays out of migration diffs. If you add an entity, **extend that regex** or `make:migration` won't see the new table. `user` is a PostgreSQL reserved word and reaches the filter as `"user"`, hence the optional quotes.
 - There is no separate test database. Tests run against the configured database, inside transactions rolled back by `dama/doctrine-test-bundle`. Test fixtures use département `99` / INSEE `99001`.

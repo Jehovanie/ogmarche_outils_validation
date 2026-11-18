@@ -14,7 +14,7 @@ ALTER TABLE ogmarche.marche_geocode_raw
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_marche_geocode_raw_row_id ON ogmarche.marche_geocode_raw (row_id);
 
 -- Le CSV contient des caracteres echappes litteralement ("MARCHÉ BIO") : on les decode.
-CREATE FUNCTION pg_temp.decode_unicode(t text) RETURNS text LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION pg_temp.decode_unicode(t text) RETURNS text LANGUAGE plpgsql AS $$
 DECLARE m text;
 BEGIN
     IF t IS NULL THEN RETURN NULL; END IF;
