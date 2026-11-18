@@ -3,12 +3,11 @@
 namespace App\Tests\Service;
 
 use App\Service\CodePostalDepartement;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class CodePostalDepartementTest extends TestCase
 {
-    #[DataProvider('cas')]
+    /** @dataProvider cas */
     public function testCorrespondance(string $cp, string $dep, bool $attendu): void
     {
         self::assertSame($attendu, CodePostalDepartement::correspond($cp, $dep));

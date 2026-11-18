@@ -3,13 +3,15 @@
 namespace App\Tests\Service;
 
 use App\Service\MentionTemporelle;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class MentionTemporelleTest extends TestCase
 {
-    /** @param list<string> $attendu */
-    #[DataProvider('cas')]
+    /**
+     * @dataProvider cas
+     *
+     * @param list<string> $attendu
+     */
     public function testDetecter(?string $texte, array $attendu): void
     {
         self::assertSame($attendu, MentionTemporelle::detecter($texte));

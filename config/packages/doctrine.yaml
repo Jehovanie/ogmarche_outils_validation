@@ -9,6 +9,7 @@ doctrine:
         password: '%env(database_password)%'
         charset: utf8
         server_version: '16'
+        use_savepoints: true
         # Doctrine ne gere que les tables de l'outil : 'user' (schema public) et le schema
         # ogmarche. marche_geocode_raw (import brut du CSV) reste hors Doctrine.
         # "user" est un mot reserve de PostgreSQL : son nom arrive entre guillemets.
